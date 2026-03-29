@@ -1451,6 +1451,8 @@ export const FIELD_HELP: Record<string, string> = {
     "Channel provider configurations plus shared defaults that control access policies, heartbeat visibility, and per-surface behavior. Keep defaults centralized and override per provider only where required.",
   "channels.mattermost":
     "Mattermost channel provider configuration for bot credentials, base URL, and message trigger modes. Keep mention/trigger rules strict in high-volume team channels.",
+  "channels.vk":
+    "VK channel configuration for a single VK community bot using Bots Long Poll transport. Provide the community id plus a matching community access token, keep DM policy strict by default, and explicitly admit group chats/senders before relying on group routing.",
   "channels.defaults":
     "Default channel behavior applied across providers when provider-specific settings are not set. Use this to enforce consistent baseline policy before per-provider tuning.",
   "channels.defaults.groupPolicy":
@@ -1469,6 +1471,25 @@ export const FIELD_HELP: Record<string, string> = {
     'Per-agent override for heartbeat direct/DM delivery policy; use "block" for agents that should only send heartbeat alerts to non-DM destinations.',
   "channels.mattermost.configWrites":
     "Allow Mattermost to write config in response to channel events/commands (default: true).",
+  "channels.vk.communityId":
+    "Positive VK community id as a canonical decimal string. This must match the community that owns the access token and Long Poll configuration.",
+  "channels.vk.communityAccessToken":
+    "VK community access token used for Bots Long Poll and outbound API calls. Prefer an env/file secret reference instead of plaintext in production.", // pragma: allowlist secret
+  "channels.vk.tokenFile": "Filesystem path to a file containing the VK community access token.",
+  "channels.vk.defaultTo":
+    'Default VK outbound target when no explicit reply target is provided. Must be "vk:user:<user_id>" or "vk:chat:<peer_id>".',
+  "channels.vk.allowFrom":
+    'VK DM sender allowlist. Use numeric VK user ids as strings, or ["*"] only together with dmPolicy="open".',
+  "channels.vk.groupAllowFrom":
+    "Optional VK group sender allowlist (numeric VK user ids as strings). Falls back to allowFrom when omitted.",
+  "channels.vk.dmPolicy":
+    'VK DM access policy. Use "pairing" by default; "open" requires allowFrom to include "*".',
+  "channels.vk.groupPolicy":
+    'VK group policy. Use "allowlist" to require explicit sender admission, "disabled" to ignore groups, or "open" for trusted mentioned traffic.',
+  "channels.vk.groups":
+    "Admitted VK group chats keyed by peer_id. Only admitted chats are eligible for inbound group routing in the initial VK release.",
+  "channels.vk.healthMonitor":
+    "Per-channel health monitor override for VK runtime/account status checks and restart policy.",
   "channels.modelByChannel":
     "Map provider -> channel id -> model override (values are provider/model or aliases).",
   "messages.suppressToolErrors":

@@ -64,6 +64,8 @@ export type ChannelMessageToolDiscovery = {
 export type ChannelSetupInput = {
   name?: string;
   token?: string;
+  communityId?: string;
+  communityAccessToken?: string;
   privateKey?: string;
   tokenFile?: string;
   botToken?: string;

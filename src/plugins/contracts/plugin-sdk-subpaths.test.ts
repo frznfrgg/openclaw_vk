@@ -235,6 +235,13 @@ describe("plugin-sdk subpath exports", () => {
     ]) {
       expectSourceMentions(subpath, ["chunkTextForOutbound"]);
     }
+    expectSourceMentions("vk", [
+      "createVkPluginBase",
+      "VkConfigSchema",
+      "normalizeVkTarget",
+      "vkSetupAdapter",
+      "vkSetupWizard",
+    ]);
     expectSourceMentions("signal", ["chunkText"]);
     expectSourceMentions("reply-history", [
       "buildPendingHistoryContextFromMap",

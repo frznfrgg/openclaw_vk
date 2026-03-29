@@ -4,12 +4,12 @@ import type { ChannelPlugin } from "../channels/plugins/types.js";
 import { setActivePluginRegistry } from "../plugins/runtime.js";
 import { DEFAULT_ACCOUNT_ID } from "../routing/session-key.js";
 import { createChannelTestPluginBase, createTestRegistry } from "../test-utils/channel-plugins.js";
+import { configMocks, offsetMocks } from "./channels.mock-harness.js";
 import {
   ensureChannelSetupPluginInstalled,
   loadChannelSetupPluginRegistrySnapshotForChannel,
 } from "./channel-setup/plugin-install.js";
 import { channelsAddCommand } from "./channels.js";
-import { configMocks, offsetMocks } from "./channels.mock-harness.js";
 import {
   createMSTeamsCatalogEntry,
   createMSTeamsSetupPlugin,
@@ -157,12 +157,52 @@ function createTelegramAddTestPlugin(): ChannelPlugin {
   } as ChannelPlugin;
 }
 
+function createVkAddTestPlugin(): ChannelPlugin {
+  return {
+    ...createChannelTestPluginBase({
+      id: "vk",
+      label: "VK",
+      docsPath: "/channels/vk",
+    }),
+    setup: {
+      resolveAccountId: ({ accountId }) => {
+        const normalized = accountId?.trim() || DEFAULT_ACCOUNT_ID;
+        if (normalized !== DEFAULT_ACCOUNT_ID) {
+          throw new Error('VK supports only the "default" account id.');
+        }
+        return DEFAULT_ACCOUNT_ID;
+      },
+      applyAccountConfig: ({ cfg, input }) => ({
+        ...cfg,
+        channels: {
+          ...cfg.channels,
+          vk: {
+            ...cfg.channels?.vk,
+            enabled: true,
+            communityId: String(input.communityId ?? "")
+              .trim()
+              .replace(/^0+(\d)/u, "$1"),
+            ...(input.communityAccessToken
+              ? { communityAccessToken: input.communityAccessToken.trim() }
+              : {}),
+          },
+        },
+      }),
+    },
+  } as ChannelPlugin;
+}
+
 function setMinimalChannelsAddRegistryForTests(): void {
   setActivePluginRegistry(
     createTestRegistry([
       {
         pluginId: "telegram",
         plugin: createTelegramAddTestPlugin(),
+        source: "test",
+      },
+      {
+        pluginId: "vk",
+        plugin: createVkAddTestPlugin(),
         source: "test",
       },
     ]),
@@ -480,5 +520,53 @@ describe("channelsAddCommand", () => {
     expect(runtime.error).toHaveBeenCalledWith(
       'Channel signal post-setup warning for "ops": hook failed',
     );
+  });
+
+  it("maps VK non-interactive flags into setup input and writes top-level vk config", async () => {
+    configMocks.readConfigFileSnapshot.mockResolvedValue({ ...baseConfigSnapshot });
+
+    await channelsAddCommand(
+      {
+        channel: "vk",
+        account: "default",
+        communityId: " 00123 ",
+        communityAccessToken: " vk-token ",
+      },
+      runtime,
+      { hasFlags: true },
+    );
+
+    expect(configMocks.writeConfigFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channels: expect.objectContaining({
+          vk: expect.objectContaining({
+            enabled: true,
+            communityId: "123",
+            communityAccessToken: "vk-token",
+          }),
+        }),
+      }),
+    );
+    expect(runtime.error).not.toHaveBeenCalled();
+    expect(runtime.exit).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-default account ids for VK before config write", async () => {
+    configMocks.readConfigFileSnapshot.mockResolvedValue({ ...baseConfigSnapshot });
+
+    await channelsAddCommand(
+      {
+        channel: "vk",
+        account: "ops",
+        communityId: "123",
+        communityAccessToken: "vk-token",
+      },
+      runtime,
+      { hasFlags: true },
+    );
+
+    expect(configMocks.writeConfigFile).not.toHaveBeenCalled();
+    expect(runtime.error).toHaveBeenCalledWith('VK supports only the "default" account id.');
+    expect(runtime.exit).toHaveBeenCalledWith(1);
   });
 });

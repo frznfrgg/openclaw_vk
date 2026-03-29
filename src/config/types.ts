@@ -31,6 +31,7 @@ export * from "./types.slack.js";
 export * from "./types.telegram.js";
 export * from "./types.tts.js";
 export * from "./types.tools.js";
+export * from "./types.vk.js";
 export * from "./types.whatsapp.js";
 export * from "./types.memory.js";
 export * from "./types.mcp.js";

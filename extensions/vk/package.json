@@ -1,0 +1,26 @@
+{
+  "name": "@openclaw/vk",
+  "version": "2026.4.1",
+  "private": true,
+  "description": "OpenClaw VK channel plugin",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "setupEntry": "./setup-entry.ts",
+    "channel": {
+      "id": "vk",
+      "label": "VK",
+      "selectionLabel": "VK (Community Bot)",
+      "detailLabel": "VK Community Bot",
+      "docsPath": "/channels/vk",
+      "docsLabel": "vk",
+      "blurb": "VK community bot with Long Poll transport.",
+      "systemImage": "message"
+    },
+    "bundle": {
+      "stageRuntimeDependencies": true
+    }
+  }
+}

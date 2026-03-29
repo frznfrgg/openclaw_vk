@@ -671,6 +671,10 @@
       "types": "./dist/plugin-sdk/msteams.d.ts",
       "default": "./dist/plugin-sdk/msteams.js"
     },
+    "./plugin-sdk/vk": {
+      "types": "./dist/plugin-sdk/vk.d.ts",
+      "default": "./dist/plugin-sdk/vk.js"
+    },
     "./plugin-sdk/nextcloud-talk": {
       "types": "./dist/plugin-sdk/nextcloud-talk.d.ts",
       "default": "./dist/plugin-sdk/nextcloud-talk.js"
