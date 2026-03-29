@@ -6,18 +6,15 @@ import {
   createChannelPluginBase,
   getChatChannelMeta,
 } from "openclaw/plugin-sdk/core";
-import {
-  VkConfigSchema,
-  normalizeVkAllowFromForConfigWrite,
-  normalizeVkCommunityId,
-  normalizeVkGroupsForConfigWrite,
-  normalizeVkGroupAllowFromForConfigWrite,
-} from "./config-schema.js";
-import { normalizeVkTarget } from "./targets.js";
+import type { SecretInput } from "openclaw/plugin-sdk/setup";
+import { inspectVkAccount } from "./account-inspect.js";
+import { VkConfigSchema } from "./config-schema.js";
 
 export const VK_CHANNEL = "vk" as const;
+export const VK_DEFAULT_ACCOUNT_ID = DEFAULT_ACCOUNT_ID;
+export const VK_ENV_ACCESS_TOKEN = "VK_COMMUNITY_ACCESS_TOKEN";
 
-type VkSecretInput = string | { source: "env"; provider: string; id: string };
+export type VkSecretInput = SecretInput;
 
 export type VkAccountConfig = {
   enabled?: boolean;
@@ -33,109 +30,45 @@ export type VkAccountConfig = {
   healthMonitor?: { enabled?: boolean };
 };
 
+export type VkCredentialStatus = "available" | "configured_unavailable" | "missing";
+
 export type ResolvedVkAccount = {
   accountId: "default";
-  enabled: boolean;
-  configured: boolean;
+  enabled: true;
+  configured: true;
+  communityId: string;
+  token: string;
+  tokenSource: "config" | "env" | "tokenFile";
+  tokenStatus: "available";
   config: VkAccountConfig;
 };
 
-function hasConfiguredCredential(config: Record<string, unknown>): boolean {
-  const token = config.communityAccessToken;
-  if (typeof token === "string" && token.trim()) {
-    return true;
-  }
-  if (
-    token &&
-    typeof token === "object" &&
-    (token as { source?: unknown }).source === "env" &&
-    typeof (token as { provider?: unknown }).provider === "string" &&
-    typeof (token as { id?: unknown }).id === "string"
-  ) {
-    return true;
-  }
-  return typeof config.tokenFile === "string" && config.tokenFile.trim().length > 0;
-}
+export type InspectedVkAccount = {
+  accountId: "default";
+  enabled: boolean;
+  configured: boolean;
+  communityId?: string;
+  token?: string;
+  tokenSource: "config" | "env" | "tokenFile" | "none";
+  tokenStatus: VkCredentialStatus;
+  config: VkAccountConfig;
+};
 
-function readMixedEntries(value: unknown): Array<string | number> {
-  if (Array.isArray(value)) {
-    return value as Array<string | number>;
-  }
-  if (typeof value === "string" || typeof value === "number") {
-    return [value];
-  }
-  return [];
-}
-
-function readDmPolicy(value: unknown): VkAccountConfig["dmPolicy"] | undefined {
-  if (value === "open" || value === "pairing" || value === "allowlist" || value === "disabled") {
-    return value;
-  }
-  return undefined;
-}
-
-function readGroupPolicy(value: unknown): VkAccountConfig["groupPolicy"] | undefined {
-  if (value === "open" || value === "allowlist" || value === "disabled") {
-    return value;
-  }
-  return undefined;
-}
-
-export function resolveVkAccount(params: {
-  cfg: { channels?: Record<string, unknown> };
-}): ResolvedVkAccount {
-  const section = (params.cfg.channels?.[VK_CHANNEL] as Record<string, unknown> | undefined) ?? {};
-  const communityId = normalizeVkCommunityId(section.communityId);
-  const defaultTo =
-    typeof section.defaultTo === "string"
-      ? (normalizeVkTarget(section.defaultTo) ?? undefined)
-      : undefined;
-  const allowFrom = normalizeVkAllowFromForConfigWrite(readMixedEntries(section.allowFrom));
-  const groupAllowFrom = normalizeVkGroupAllowFromForConfigWrite(
-    readMixedEntries(section.groupAllowFrom),
-  );
-  const groups = normalizeVkGroupsForConfigWrite(
-    section.groups as Record<string, { enabled?: boolean }> | undefined,
-  );
-
-  const config: VkAccountConfig = {
-    enabled: typeof section.enabled === "boolean" ? section.enabled : undefined,
-    communityId: communityId ?? undefined,
-    communityAccessToken: section.communityAccessToken as VkSecretInput | undefined,
-    tokenFile:
-      typeof section.tokenFile === "string" ? section.tokenFile.trim() || undefined : undefined,
-    defaultTo,
-    ...(allowFrom.length > 0 ? { allowFrom } : {}),
-    ...(groupAllowFrom.length > 0 ? { groupAllowFrom } : {}),
-    dmPolicy: readDmPolicy(section.dmPolicy),
-    groupPolicy: readGroupPolicy(section.groupPolicy),
-    groups,
-    healthMonitor: section.healthMonitor as VkAccountConfig["healthMonitor"],
-  };
-
-  return {
-    accountId: DEFAULT_ACCOUNT_ID,
-    enabled: config.enabled !== false,
-    configured: Boolean(config.communityId && hasConfiguredCredential(section)),
-    config,
-  };
-}
-
-export const vkConfigAdapter = createTopLevelChannelConfigAdapter<ResolvedVkAccount>({
+export const vkConfigAdapter = createTopLevelChannelConfigAdapter<InspectedVkAccount>({
   sectionKey: VK_CHANNEL,
-  resolveAccount: (cfg) => resolveVkAccount({ cfg }),
-  listAccountIds: () => [DEFAULT_ACCOUNT_ID],
-  defaultAccountId: () => DEFAULT_ACCOUNT_ID,
+  resolveAccount: (cfg) => inspectVkAccount({ cfg }),
+  listAccountIds: () => [VK_DEFAULT_ACCOUNT_ID],
+  defaultAccountId: () => VK_DEFAULT_ACCOUNT_ID,
   resolveAllowFrom: (account) => account.config.allowFrom,
-  formatAllowFrom: (allowFrom) => normalizeVkAllowFromForConfigWrite(allowFrom),
+  formatAllowFrom: (allowFrom) => allowFrom.map((entry) => String(entry).trim()).filter(Boolean),
   resolveDefaultTo: (account) => account.config.defaultTo,
 });
 
 export function createVkPluginBase(params: {
-  setupWizard?: NonNullable<ChannelPlugin<ResolvedVkAccount>["setupWizard"]>;
-  setup: NonNullable<ChannelPlugin<ResolvedVkAccount>["setup"]>;
+  setupWizard?: NonNullable<ChannelPlugin<InspectedVkAccount>["setupWizard"]>;
+  setup: NonNullable<ChannelPlugin<InspectedVkAccount>["setup"]>;
 }): Pick<
-  ChannelPlugin<ResolvedVkAccount>,
+  ChannelPlugin<InspectedVkAccount>,
   "id" | "meta" | "setupWizard" | "capabilities" | "reload" | "configSchema" | "config" | "setup"
 > {
   return createChannelPluginBase({
@@ -152,17 +85,20 @@ export function createVkPluginBase(params: {
     configSchema: buildChannelConfigSchema(VkConfigSchema),
     config: {
       ...vkConfigAdapter,
+      inspectAccount: (cfg) => inspectVkAccount({ cfg }),
       isConfigured: (account) => account.configured,
       describeAccount: (account) => ({
         accountId: account.accountId,
         enabled: account.enabled,
         configured: account.configured,
-        communityId: account.config.communityId,
+        communityId: account.communityId,
+        tokenSource: account.tokenSource,
+        tokenStatus: account.tokenStatus,
       }),
     },
     setup: params.setup,
   }) as Pick<
-    ChannelPlugin<ResolvedVkAccount>,
+    ChannelPlugin<InspectedVkAccount>,
     "id" | "meta" | "setupWizard" | "capabilities" | "reload" | "configSchema" | "config" | "setup"
   >;
 }

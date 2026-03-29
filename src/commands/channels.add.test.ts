@@ -62,6 +62,34 @@ function listConfiguredAccountIds(
   return [];
 }
 
+const VK_DEFAULT_ACCOUNT_ID = "default";
+const VK_NON_DEFAULT_ACCOUNT_ERROR = 'VK supports only the "default" account id.';
+const VK_USE_ENV_REF = {
+  source: "env",
+  provider: "default",
+  id: "VK_COMMUNITY_ACCESS_TOKEN",
+} as const;
+
+function normalizeVkCommunityIdForTest(raw: unknown): string | undefined {
+  if (raw == null) {
+    return undefined;
+  }
+  const trimmed =
+    typeof raw === "string"
+      ? raw.trim()
+      : typeof raw === "number" && Number.isFinite(raw)
+        ? String(raw)
+        : undefined;
+  if (!trimmed) {
+    return undefined;
+  }
+  if (!/^[0-9]+$/.test(trimmed)) {
+    return undefined;
+  }
+  const canonical = trimmed.replace(/^0+/, "");
+  return canonical || undefined;
+}
+
 function createTelegramAddTestPlugin(): ChannelPlugin {
   const resolveTelegramAccount = (
     cfg: Parameters<NonNullable<ChannelPlugin["config"]["resolveAccount"]>>[0],
@@ -179,14 +207,36 @@ function createVkAddTestPlugin(): ChannelPlugin {
           vk: {
             ...cfg.channels?.vk,
             enabled: true,
-            communityId: String(input.communityId ?? "")
-              .trim()
-              .replace(/^0+(\d)/u, "$1"),
-            ...(input.communityAccessToken
-              ? { communityAccessToken: input.communityAccessToken.trim() }
+            ...(normalizeVkCommunityIdForTest(input.communityId)
+              ? { communityId: normalizeVkCommunityIdForTest(input.communityId) }
               : {}),
+            ...(input.useEnv === true
+              ? { communityAccessToken: VK_USE_ENV_REF }
+              : typeof input.tokenFile === "string" && input.tokenFile.trim()
+                ? { tokenFile: input.tokenFile.trim() }
+                : typeof input.communityAccessToken === "string"
+                  ? { communityAccessToken: input.communityAccessToken.trim() }
+                  : {}),
           },
         },
+      }),
+      validateCompleteInput: vi.fn(({ candidateCfg }) => {
+        const communityId = candidateCfg.channels?.vk?.communityId;
+        const hasToken = Boolean(candidateCfg.channels?.vk?.communityAccessToken);
+        const hasTokenFile = Boolean(candidateCfg.channels?.vk?.tokenFile);
+        if (!communityId) {
+          return "VK setup requires a community id.";
+        }
+        if (Number(hasToken) + Number(hasTokenFile) !== 1) {
+          return "VK setup requires exactly one credential source: communityAccessToken, tokenFile, or VK_COMMUNITY_ACCESS_TOKEN.";
+        }
+        return null;
+      }),
+      validateInputAsync: vi.fn(async ({ candidateCfg }) => {
+        if (candidateCfg.channels?.vk?.communityAccessToken === "bad-token") {
+          return "VK Long Poll probe failed: invalid token";
+        }
+        return null;
       }),
     },
   } as ChannelPlugin;
@@ -567,6 +617,52 @@ describe("channelsAddCommand", () => {
 
     expect(configMocks.writeConfigFile).not.toHaveBeenCalled();
     expect(runtime.error).toHaveBeenCalledWith('VK supports only the "default" account id.');
+    expect(runtime.exit).toHaveBeenCalledWith(1);
+  });
+
+  it("maps VK --use-env into the shared env SecretRef path", async () => {
+    configMocks.readConfigFileSnapshot.mockResolvedValue({ ...baseConfigSnapshot });
+
+    await channelsAddCommand(
+      {
+        channel: "vk",
+        account: "default",
+        communityId: "123",
+        useEnv: true,
+      },
+      runtime,
+      { hasFlags: true },
+    );
+
+    expect(configMocks.writeConfigFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channels: expect.objectContaining({
+          vk: expect.objectContaining({
+            enabled: true,
+            communityId: "123",
+            communityAccessToken: VK_USE_ENV_REF,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("rejects invalid VK credentials before config write", async () => {
+    configMocks.readConfigFileSnapshot.mockResolvedValue({ ...baseConfigSnapshot });
+
+    await channelsAddCommand(
+      {
+        channel: "vk",
+        account: "default",
+        communityId: "123",
+        communityAccessToken: "bad-token",
+      },
+      runtime,
+      { hasFlags: true },
+    );
+
+    expect(configMocks.writeConfigFile).not.toHaveBeenCalled();
+    expect(runtime.error).toHaveBeenCalledWith("VK Long Poll probe failed: invalid token");
     expect(runtime.exit).toHaveBeenCalledWith(1);
   });
 });

@@ -4,7 +4,15 @@ export type { OpenClawConfig } from "../config/config.js";
 export type { PluginRuntime } from "../plugins/runtime/types.js";
 export type { OpenClawPluginApi } from "../plugins/types.js";
 export type { VkConfig } from "../config/types.vk.js";
-export type { VkAccountConfig, ResolvedVkAccount } from "../../extensions/vk/api.js";
+export type {
+  InspectedVkAccount,
+  ResolvedVkAccount,
+  VkAccountConfig,
+  VkCredentialStatus,
+  VkResolvedToken,
+  VkRuntimeSnapshot,
+  VkProbe,
+} from "../../extensions/vk/api.js";
 
 export { emptyPluginConfigSchema } from "../plugins/config-schema.js";
 export { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../routing/session-key.js";
@@ -12,8 +20,9 @@ export { buildChannelConfigSchema, getChatChannelMeta } from "./channel-plugin-c
 
 export {
   VK_CHANNEL,
+  VK_DEFAULT_ACCOUNT_ID,
+  VK_ENV_ACCESS_TOKEN,
   createVkPluginBase,
-  resolveVkAccount,
   vkConfigAdapter,
 } from "../../extensions/vk/api.js";
 export {
@@ -30,6 +39,16 @@ export {
   normalizeVkTarget,
 } from "../../extensions/vk/api.js";
 export {
+  applyVkCredentialSource,
+  buildVkUseEnvSecretRef,
+  inspectVkAccount,
+  probeVkAccount,
+  readVkRuntimeState,
+  cacheVkProbe,
+  createDefaultVkRuntimeState,
+  resolveVkAccountConfig,
+  resolveVkRuntimeAccount,
+  resolveVkToken,
   resolveVkSetupAccountId,
   validateVkSetupInput,
   vkSetupAdapter,

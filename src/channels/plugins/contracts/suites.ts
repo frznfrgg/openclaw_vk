@@ -567,6 +567,12 @@ export function installChannelSetupContractSuite<ResolvedAccount>(params: {
   it("exposes the base setup contract", () => {
     expect(params.plugin.setup).toBeDefined();
     expect(typeof params.plugin.setup?.applyAccountConfig).toBe("function");
+    if (params.plugin.setup?.validateCompleteInput) {
+      expect(typeof params.plugin.setup.validateCompleteInput).toBe("function");
+    }
+    if (params.plugin.setup?.validateInputAsync) {
+      expect(typeof params.plugin.setup.validateInputAsync).toBe("function");
+    }
   });
 
   for (const testCase of params.cases) {

@@ -653,6 +653,8 @@ importers:
 
   extensions/vercel-ai-gateway: {}
 
+  extensions/vk: {}
+
   extensions/vllm: {}
 
   extensions/voice-call:

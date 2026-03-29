@@ -4,6 +4,7 @@ import type { MsgContext } from "../../auto-reply/templating.js";
 import type { ReplyPayload } from "../../auto-reply/types.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import type { OutboundMediaAccess } from "../../media/load-options.js";
+import type { SecretInput } from "../../config/types.secrets.js";
 import type { PollInput } from "../../polls.js";
 import type { GatewayClientMode, GatewayClientName } from "../../utils/message-channel.js";
 import type { ChatType } from "../chat-type.js";
@@ -65,7 +66,7 @@ export type ChannelSetupInput = {
   name?: string;
   token?: string;
   communityId?: string;
-  communityAccessToken?: string;
+  communityAccessToken?: SecretInput;
   privateKey?: string;
   tokenFile?: string;
   botToken?: string;

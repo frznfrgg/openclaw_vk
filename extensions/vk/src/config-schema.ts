@@ -252,7 +252,7 @@ const VkGroupsSchema = z
         });
         continue;
       }
-      normalized[normalizedGroupId] = groupCfg;
+      normalized[normalizedGroupId] = groupCfg as { enabled?: boolean };
     }
     return normalized;
   })

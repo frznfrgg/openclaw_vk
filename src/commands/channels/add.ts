@@ -340,21 +340,44 @@ export async function channelsAddCommand(
   }
 
   const prevConfig = nextConfig;
-
-  if (accountId !== DEFAULT_ACCOUNT_ID) {
-    nextConfig = moveSingleAccountChannelSectionToDefaultAccount({
-      cfg: nextConfig,
-      channelKey: channel,
-    });
-  }
-
-  nextConfig = applyChannelAccountConfig({
-    cfg: nextConfig,
+  const candidateBaseConfig =
+    accountId !== DEFAULT_ACCOUNT_ID
+      ? moveSingleAccountChannelSectionToDefaultAccount({
+          cfg: nextConfig,
+          channelKey: channel,
+        })
+      : nextConfig;
+  const candidateConfig = applyChannelAccountConfig({
+    cfg: candidateBaseConfig,
     channel,
     accountId,
     input,
     plugin,
   });
+  const completeValidationError = plugin.setup.validateCompleteInput?.({
+    cfg: prevConfig,
+    candidateCfg: candidateConfig,
+    accountId,
+    input,
+  });
+  if (completeValidationError) {
+    runtime.error(completeValidationError);
+    runtime.exit(1);
+    return;
+  }
+  const asyncValidationError = await plugin.setup.validateInputAsync?.({
+    cfg: prevConfig,
+    candidateCfg: candidateConfig,
+    accountId,
+    input,
+  });
+  if (asyncValidationError) {
+    runtime.error(asyncValidationError);
+    runtime.exit(1);
+    return;
+  }
+
+  nextConfig = candidateConfig;
   await plugin.lifecycle?.onAccountConfigChanged?.({
     prevCfg: prevConfig,
     nextCfg: nextConfig,

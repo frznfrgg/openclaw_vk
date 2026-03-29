@@ -770,6 +770,34 @@ function collectZaloAssignments(params: {
   });
 }
 
+function collectVkAssignments(params: {
+  config: OpenClawConfig;
+  defaults: SecretDefaults | undefined;
+  context: ResolverContext;
+}): void {
+  const channels = params.config.channels as Record<string, unknown> | undefined;
+  if (!isRecord(channels)) {
+    return;
+  }
+  const vk = channels.vk;
+  if (!isRecord(vk)) {
+    return;
+  }
+  const tokenFile = normalizeSecretStringValue(vk.tokenFile);
+  collectSecretInputAssignment({
+    value: vk.communityAccessToken,
+    path: "channels.vk.communityAccessToken",
+    expected: "string",
+    defaults: params.defaults,
+    context: params.context,
+    active: isEnabledFlag(vk) && tokenFile.length === 0,
+    inactiveReason: "VK is disabled or tokenFile is configured for the community access token.",
+    apply: (value) => {
+      vk.communityAccessToken = value;
+    },
+  });
+}
+
 function collectFeishuAssignments(params: {
   config: OpenClawConfig;
   defaults: SecretDefaults | undefined;
@@ -990,4 +1018,5 @@ export function collectChannelConfigAssignments(params: {
   collectNextcloudTalkAssignments(params);
   collectFeishuAssignments(params);
   collectZaloAssignments(params);
+  collectVkAssignments(params);
 }

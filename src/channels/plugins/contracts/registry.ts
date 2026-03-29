@@ -507,6 +507,26 @@ export const setupContractRegistry: SetupContractEntry[] = [
       },
     ],
   },
+  {
+    id: "vk",
+    plugin: requireBundledChannelPlugin("vk"),
+    cases: [
+      {
+        name: "default account stores community id and inline token",
+        cfg: {} as OpenClawConfig,
+        input: {
+          communityId: "123",
+          communityAccessToken: "vk-token",
+        },
+        expectedAccountId: "default",
+        assertPatchedConfig: (cfg) => {
+          expect(cfg.channels?.vk?.enabled).toBe(true);
+          expect(cfg.channels?.vk?.communityId).toBe("123");
+          expect(cfg.channels?.vk?.communityAccessToken).toBe("vk-token");
+        },
+      },
+    ],
+  },
 ];
 
 export const statusContractRegistry: StatusContractEntry[] = [
@@ -594,6 +614,36 @@ export const statusContractRegistry: StatusContractEntry[] = [
           expect(snapshot.enabled).toBe(true);
           expect(snapshot.configured).toBe(true);
           expect(snapshot.mode).toBe("webhook");
+        },
+      },
+    ],
+  },
+  {
+    id: "vk",
+    plugin: requireBundledChannelPlugin("vk"),
+    cases: [
+      {
+        name: "configured account reports the passive baseline snapshot",
+        cfg: {
+          channels: {
+            vk: {
+              enabled: true,
+              communityId: "123",
+              communityAccessToken: "vk-token",
+            },
+          },
+        } as OpenClawConfig,
+        runtime: {
+          accountId: "default",
+          running: false,
+          connected: false,
+        },
+        probe: { ok: true },
+        assertSnapshot: (snapshot) => {
+          expect(snapshot.accountId).toBe("default");
+          expect(snapshot.enabled).toBe(true);
+          expect(snapshot.configured).toBe(true);
+          expect(snapshot.connected).toBe(false);
         },
       },
     ],
