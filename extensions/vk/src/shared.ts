@@ -13,6 +13,8 @@ import { VkConfigSchema } from "./config-schema.js";
 export const VK_CHANNEL = "vk" as const;
 export const VK_DEFAULT_ACCOUNT_ID = DEFAULT_ACCOUNT_ID;
 export const VK_ENV_ACCESS_TOKEN = "VK_COMMUNITY_ACCESS_TOKEN";
+export const VK_API_BASE = "https://api.vk.com/method";
+export const VK_API_VERSION = "5.199";
 
 export type VkSecretInput = SecretInput;
 
