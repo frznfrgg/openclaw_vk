@@ -36,6 +36,9 @@ export {
 export {
   VK_GROUP_PEER_MIN,
   VK_USER_ID_MAX_EXCLUSIVE,
+  inferVkTargetChatType,
+  parseVkExplicitTarget,
+  parseVkTarget,
   normalizeVkTarget,
 } from "../../extensions/vk/api.js";
 export {

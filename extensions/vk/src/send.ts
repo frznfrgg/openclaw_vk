@@ -1,7 +1,10 @@
 import { randomInt } from "node:crypto";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
 import type { OutboundDeliveryResult } from "../../../src/infra/outbound/deliver.js";
+import { sanitizeForPlainText } from "../../../src/infra/outbound/sanitize-text.js";
+import { stripMarkdown } from "../../../src/line/markdown-to-line.js";
 import { inspectVkAccount } from "./account-inspect.js";
+import { writeVkRuntimeState } from "./runtime.js";
 import { VK_API_BASE, VK_API_VERSION, VK_DEFAULT_ACCOUNT_ID } from "./shared.js";
 import { parseVkTarget } from "./targets.js";
 import { resolveVkRuntimeAccount } from "./token.js";
@@ -14,16 +17,26 @@ type VkSendResponseBody = {
   };
 };
 
+const MAX_VK_RANDOM_ID = 2_147_483_647;
+let nextVkRandomId = randomInt(1, MAX_VK_RANDOM_ID + 1);
+
+export const VK_CANONICAL_TARGET_ERROR =
+  'VK sendText requires a canonical target in the form "vk:user:<user_id>" or "vk:chat:<peer_id>".';
+
 export function buildVkRandomId(): number {
-  return randomInt(1, 2_147_483_647);
+  const current = nextVkRandomId;
+  nextVkRandomId = current >= MAX_VK_RANDOM_ID ? 1 : current + 1;
+  return current;
+}
+
+function flattenVkTextSegment(text: string): string {
+  return stripMarkdown(sanitizeForPlainText(text)).trim();
 }
 
 function resolveVkPeerTarget(raw: string): { canonicalTarget: string; peerId: string } {
   const parsed = parseVkTarget(raw);
   if (!parsed) {
-    throw new Error(
-      'VK sendText requires a canonical target in the form "vk:user:<user_id>" or "vk:chat:<peer_id>".',
-    );
+    throw new Error(VK_CANONICAL_TARGET_ERROR);
   }
   return {
     canonicalTarget: parsed.canonicalTarget,
@@ -39,7 +52,7 @@ export async function sendVkText(params: {
   fetcher?: typeof fetch;
   randomId?: number;
 }): Promise<OutboundDeliveryResult> {
-  const message = params.text.trim();
+  const message = flattenVkTextSegment(params.text);
   if (!message) {
     throw new Error("VK sendText requires non-empty message text.");
   }
@@ -97,11 +110,16 @@ export async function sendVkText(params: {
     throw new Error("VK messages.send returned an invalid response payload.");
   }
 
+  const timestamp = Date.now();
+  writeVkRuntimeState(accountId, {
+    lastOutboundAt: timestamp,
+  });
+
   return {
     channel: "vk",
     messageId: String(messageId),
     chatId: target.peerId,
     conversationId: target.canonicalTarget,
-    timestamp: Date.now(),
+    timestamp,
   };
 }

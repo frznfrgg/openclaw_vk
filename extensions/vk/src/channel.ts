@@ -7,6 +7,9 @@ import { createScopedDmSecurityResolver } from "openclaw/plugin-sdk/channel-conf
 import { createAccountStatusSink } from "openclaw/plugin-sdk/channel-lifecycle";
 import type { ChannelPlugin } from "openclaw/plugin-sdk/channel-runtime";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
+import { buildChannelOutboundSessionRoute } from "openclaw/plugin-sdk/core";
+import { chunkByParagraph } from "../../../src/auto-reply/chunk.js";
+import { PAIRING_APPROVED_MESSAGE } from "../../../src/channels/plugins/pairing-message.js";
 import {
   resolveAllowlistProviderRuntimeGroupPolicy,
   resolveDefaultGroupPolicy,
@@ -26,7 +29,12 @@ import {
   VK_DEFAULT_ACCOUNT_ID,
   type InspectedVkAccount,
 } from "./shared.js";
-import { normalizeVkUserId } from "./targets.js";
+import {
+  inferVkTargetChatType,
+  normalizeVkTarget,
+  normalizeVkUserId,
+  parseVkExplicitTarget,
+} from "./targets.js";
 import { resolveVkRuntimeAccount } from "./token.js";
 import { runVkLongPoll } from "./transport/long-poll.js";
 
@@ -55,6 +63,32 @@ function readVkAllowlistConfig(account: InspectedVkAccount) {
     dmPolicy: account.config.dmPolicy,
     groupPolicy: account.config.groupPolicy,
   };
+}
+
+function resolveVkOutboundSessionRoute(params: {
+  cfg: OpenClawConfig;
+  agentId: string;
+  accountId?: string | null;
+  target: string;
+}) {
+  const parsed = parseVkExplicitTarget(params.target);
+  if (!parsed) {
+    return null;
+  }
+
+  return buildChannelOutboundSessionRoute({
+    cfg: params.cfg,
+    agentId: params.agentId,
+    channel: VK_CHANNEL,
+    accountId: params.accountId,
+    peer: {
+      kind: parsed.chatType === "direct" ? "direct" : "group",
+      id: parsed.peerId,
+    },
+    chatType: parsed.chatType,
+    from: parsed.to,
+    to: parsed.to,
+  });
 }
 
 const applyScopedVkAllowlistEdit = buildAccountScopedAllowlistConfigEditor({
@@ -88,6 +122,13 @@ export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
   pairing: {
     idLabel: "vkUserId",
     normalizeAllowEntry: normalizeVkAllowEntry,
+    notifyApproval: async ({ cfg, id }) => {
+      await sendVkText({
+        cfg,
+        to: `vk:user:${id}`,
+        text: PAIRING_APPROVED_MESSAGE,
+      });
+    },
   },
   allowlist: {
     supportsScope: ({ scope }) => scope === "dm" || scope === "group" || scope === "all",
@@ -240,6 +281,24 @@ export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
   },
   outbound: {
     deliveryMode: "direct",
+    chunker: chunkByParagraph,
+    chunkerMode: "text",
+    textChunkLimit: 9000,
+    resolveTarget: ({ to }) => {
+      const normalized = to ? normalizeVkTarget(to) : null;
+      if (!normalized) {
+        return {
+          ok: false as const,
+          error: new Error(
+            'VK requires an explicit target in the form "vk:user:<user_id>" or "vk:chat:<peer_id>".',
+          ),
+        };
+      }
+      return {
+        ok: true as const,
+        to: normalized,
+      };
+    },
     sendText: async ({ cfg, to, text, accountId }) =>
       await sendVkText({
         cfg,
@@ -247,6 +306,24 @@ export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
         text,
         accountId,
       }),
+  },
+  messaging: {
+    normalizeTarget: (raw) => normalizeVkTarget(raw) ?? undefined,
+    parseExplicitTarget: ({ raw }) => {
+      const parsed = parseVkExplicitTarget(raw);
+      return parsed ? { to: parsed.to, chatType: parsed.chatType } : null;
+    },
+    inferTargetChatType: ({ to }) => inferVkTargetChatType(to) ?? undefined,
+    resolveOutboundSessionRoute: ({ cfg, agentId, accountId, target }) =>
+      resolveVkOutboundSessionRoute({
+        cfg,
+        agentId,
+        accountId,
+        target,
+      }),
+    targetResolver: {
+      hint: "<vk:user:{user_id}|vk:chat:{peer_id}>",
+    },
   },
 };
 

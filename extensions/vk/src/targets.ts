@@ -1,6 +1,15 @@
 export const VK_GROUP_PEER_MIN = 2_000_000_000n;
 export const VK_USER_ID_MAX_EXCLUSIVE = VK_GROUP_PEER_MIN;
 
+export type VkExplicitTarget = {
+  kind: "user" | "chat";
+  to: string;
+  canonicalId: string;
+  peerId: string;
+  chatType: "direct" | "group";
+  userId?: string;
+};
+
 export type VkParsedTarget =
   | {
       kind: "user";
@@ -57,10 +66,14 @@ export function normalizeVkPeerId(raw: string): string | null {
 }
 
 export function normalizeVkTarget(raw: string): string | null {
-  return parseVkTarget(raw)?.canonicalTarget ?? null;
+  return parseVkExplicitTarget(raw)?.to ?? null;
 }
 
-export function parseVkTarget(raw: string): VkParsedTarget | null {
+export function inferVkTargetChatType(raw: string): "direct" | "group" | null {
+  return parseVkExplicitTarget(raw)?.chatType ?? null;
+}
+
+export function parseVkExplicitTarget(raw: string): VkExplicitTarget | null {
   const trimmed = raw.trim();
   if (!trimmed || /\s/.test(trimmed)) {
     return null;
@@ -74,9 +87,10 @@ export function parseVkTarget(raw: string): VkParsedTarget | null {
     }
     return {
       kind: "user",
-      canonicalTarget: `vk:user:${canonicalId}`,
+      to: `vk:user:${canonicalId}`,
       canonicalId,
       peerId: canonicalId,
+      chatType: "direct",
       userId: canonicalId,
     };
   }
@@ -88,11 +102,34 @@ export function parseVkTarget(raw: string): VkParsedTarget | null {
     }
     return {
       kind: "chat",
-      canonicalTarget: `vk:chat:${canonicalId}`,
+      to: `vk:chat:${canonicalId}`,
       canonicalId,
       peerId: canonicalId,
+      chatType: "group",
     };
   }
 
   return null;
+}
+
+export function parseVkTarget(raw: string): VkParsedTarget | null {
+  const parsed = parseVkExplicitTarget(raw);
+  if (!parsed) {
+    return null;
+  }
+  if (parsed.kind === "user") {
+    return {
+      kind: "user",
+      canonicalTarget: parsed.to,
+      canonicalId: parsed.canonicalId,
+      peerId: parsed.peerId,
+      userId: parsed.userId ?? parsed.peerId,
+    };
+  }
+  return {
+    kind: "chat",
+    canonicalTarget: parsed.to,
+    canonicalId: parsed.canonicalId,
+    peerId: parsed.peerId,
+  };
 }
