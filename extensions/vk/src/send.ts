@@ -18,11 +18,11 @@ export function buildVkRandomId(): number {
   return randomInt(1, 2_147_483_647);
 }
 
-function resolveVkDirectPeerTarget(raw: string): { canonicalTarget: string; peerId: string } {
+function resolveVkPeerTarget(raw: string): { canonicalTarget: string; peerId: string } {
   const parsed = parseVkTarget(raw);
-  if (!parsed || parsed.kind !== "user") {
+  if (!parsed) {
     throw new Error(
-      'VK sendText requires a canonical direct target in the form "vk:user:<user_id>".',
+      'VK sendText requires a canonical target in the form "vk:user:<user_id>" or "vk:chat:<peer_id>".',
     );
   }
   return {
@@ -57,7 +57,7 @@ export async function sendVkText(params: {
     throw new Error("VK is disabled.");
   }
 
-  const target = resolveVkDirectPeerTarget(params.to);
+  const target = resolveVkPeerTarget(params.to);
   const body = new URLSearchParams();
   body.set("peer_id", target.peerId);
   body.set("message", message);

@@ -40,17 +40,41 @@ describe("sendVkText", () => {
     });
   });
 
-  it("rejects non-DM targets", async () => {
+  it("rejects invalid canonical targets", async () => {
     await expect(
       sendVkText({
         cfg: baseCfg,
-        to: "vk:chat:2000000001",
+        to: "vk:not-a-target:2000000001",
         text: "hello",
         fetcher: vi.fn() as typeof fetch,
       }),
     ).rejects.toThrow(
-      'VK sendText requires a canonical direct target in the form "vk:user:<user_id>".',
+      'VK sendText requires a canonical target in the form "vk:user:<user_id>" or "vk:chat:<peer_id>".',
     );
+  });
+
+  it("accepts canonical group peer targets for routed group replies", async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new URLSearchParams(String(init?.body));
+      expect(body.get("peer_id")).toBe("2000000001");
+      expect(body.get("message")).toBe("hello group");
+      return new Response(JSON.stringify({ response: 778 }), { status: 200 });
+    });
+
+    const result = await sendVkText({
+      cfg: baseCfg,
+      to: "vk:chat:2000000001",
+      text: "hello group",
+      randomId: 12346,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(result).toMatchObject({
+      channel: "vk",
+      messageId: "778",
+      chatId: "2000000001",
+      conversationId: "vk:chat:2000000001",
+    });
   });
 
   it("surfaces VK API errors", async () => {
