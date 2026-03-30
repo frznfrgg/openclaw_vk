@@ -14142,6 +14142,115 @@ export const GENERATED_BUNDLED_CHANNEL_CONFIG_METADATA = [
     },
   },
   {
+    pluginId: "vk",
+    channelId: "vk",
+    label: "VK",
+    description: "VK community bot with Long Poll transport.",
+    schema: {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      properties: {
+        enabled: {
+          type: "boolean",
+        },
+        communityId: {},
+        communityAccessToken: {
+          anyOf: [
+            {
+              type: "string",
+            },
+            {
+              oneOf: [
+                {
+                  type: "object",
+                  properties: {
+                    source: {
+                      type: "string",
+                      const: "env",
+                    },
+                    provider: {
+                      type: "string",
+                      pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                    },
+                    id: {
+                      type: "string",
+                      pattern: "^[A-Z][A-Z0-9_]{0,127}$",
+                    },
+                  },
+                  required: ["source", "provider", "id"],
+                  additionalProperties: false,
+                },
+                {
+                  type: "object",
+                  properties: {
+                    source: {
+                      type: "string",
+                      const: "file",
+                    },
+                    provider: {
+                      type: "string",
+                      pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                    },
+                    id: {
+                      type: "string",
+                    },
+                  },
+                  required: ["source", "provider", "id"],
+                  additionalProperties: false,
+                },
+                {
+                  type: "object",
+                  properties: {
+                    source: {
+                      type: "string",
+                      const: "exec",
+                    },
+                    provider: {
+                      type: "string",
+                      pattern: "^[a-z][a-z0-9_-]{0,63}$",
+                    },
+                    id: {
+                      type: "string",
+                    },
+                  },
+                  required: ["source", "provider", "id"],
+                  additionalProperties: false,
+                },
+              ],
+            },
+          ],
+        },
+        tokenFile: {
+          type: "string",
+          minLength: 1,
+        },
+        defaultTo: {},
+        allowFrom: {},
+        groupAllowFrom: {},
+        dmPolicy: {
+          type: "string",
+          enum: ["pairing", "allowlist", "open", "disabled"],
+        },
+        groupPolicy: {
+          type: "string",
+          enum: ["open", "disabled", "allowlist"],
+        },
+        groups: {},
+        healthMonitor: {
+          type: "object",
+          properties: {
+            enabled: {
+              type: "boolean",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      required: ["communityId"],
+      additionalProperties: false,
+    },
+  },
+  {
     pluginId: "whatsapp",
     channelId: "whatsapp",
     label: "WhatsApp",

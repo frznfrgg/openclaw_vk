@@ -18,9 +18,10 @@ import { collectStatusIssuesFromLastError } from "../../../src/plugin-sdk/status
 import { buildPassiveProbedChannelStatusSummary } from "../../shared/channel-status-summary.js";
 import { normalizeVkLongPollUpdate } from "./inbound-normalize.js";
 import { routeVkInboundEvent } from "./inbound-routing.js";
+import { normalizeVkOutboundPayload } from "./media.js";
 import { probeVkAccount, type VkProbe } from "./probe.js";
 import { cacheVkProbe, createDefaultVkRuntimeState, readVkRuntimeState } from "./runtime.js";
-import { sendVkText } from "./send.js";
+import { sendVkMedia, sendVkText } from "./send.js";
 import { vkSetupAdapter } from "./setup-core.js";
 import { vkSetupWizard } from "./setup-surface.js";
 import {
@@ -284,6 +285,8 @@ export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
     chunker: chunkByParagraph,
     chunkerMode: "text",
     textChunkLimit: 9000,
+    mixedTextMediaMode: "caption-first-then-text",
+    normalizePayload: ({ payload }) => normalizeVkOutboundPayload(payload),
     resolveTarget: ({ to }) => {
       const normalized = to ? normalizeVkTarget(to) : null;
       if (!normalized) {
@@ -304,6 +307,15 @@ export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
         cfg,
         to,
         text,
+        accountId,
+      }),
+    sendMedia: async ({ cfg, to, text, mediaUrl, mediaLocalRoots, accountId }) =>
+      await sendVkMedia({
+        cfg,
+        to,
+        text,
+        mediaUrl,
+        mediaLocalRoots,
         accountId,
       }),
   },

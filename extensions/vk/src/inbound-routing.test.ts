@@ -89,9 +89,10 @@ describe("routeVkInboundEvent group routing", () => {
     const event = {
       eventId: "evt-group-1",
       peerId: "2000000001",
-      senderUserId: "77",
-      conversationMessageId: "15",
+      senderId: "77",
+      messageId: "15",
       text: "hello group",
+      attachments: [],
       timestamp: 1_700_000_000_000,
       chatType: "group" as const,
     };
@@ -131,7 +132,7 @@ describe("routeVkInboundEvent group routing", () => {
       event: {
         ...event,
         eventId: "evt-group-2",
-        conversationMessageId: "16",
+        messageId: "16",
       },
       statusSink,
     });
@@ -182,9 +183,10 @@ describe("routeVkInboundEvent group routing", () => {
       event: {
         eventId: "evt-group-3",
         peerId: "2000000002",
-        senderUserId: "77",
-        conversationMessageId: "17",
+        senderId: "77",
+        messageId: "17",
         text: "hello group",
+        attachments: [],
         timestamp: 1_700_000_000_000,
         chatType: "group",
       },
@@ -214,9 +216,10 @@ describe("routeVkInboundEvent group routing", () => {
       event: {
         eventId: "evt-group-4",
         peerId: "2000000001",
-        senderUserId: "88",
-        conversationMessageId: "18",
+        senderId: "88",
+        messageId: "18",
         text: "hello group",
+        attachments: [],
         timestamp: 1_700_000_000_000,
         chatType: "group",
       },

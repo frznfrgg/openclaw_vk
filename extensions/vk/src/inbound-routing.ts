@@ -37,8 +37,8 @@ function formatVkRoutingError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function normalizeVkSenderMatch(allowFrom: string[], senderUserId: string): boolean {
-  return allowFrom.includes("*") || allowFrom.includes(senderUserId);
+function normalizeVkSenderMatch(allowFrom: string[], senderId: string): boolean {
+  return allowFrom.includes("*") || allowFrom.includes(senderId);
 }
 
 function resolveVkOriginatingTarget(event: VkInboundEvent): string {
@@ -119,7 +119,7 @@ async function dispatchVkInboundConversation(params: {
   const rawBody = event.text.trim();
   const body = core.channel.reply.formatAgentEnvelope({
     channel: "VK",
-    from: `user ${event.senderUserId}`,
+    from: `user ${event.senderId}`,
     timestamp: event.timestamp,
     previousTimestamp,
     envelope: envelopeOptions,
@@ -130,16 +130,16 @@ async function dispatchVkInboundConversation(params: {
     Body: body,
     RawBody: rawBody,
     CommandBody: rawBody,
-    From: event.chatType === "group" ? `vk:chat:${event.peerId}` : `vk:user:${event.senderUserId}`,
+    From: event.chatType === "group" ? `vk:chat:${event.peerId}` : `vk:user:${event.senderId}`,
     To: originatingTarget,
     SessionKey: route.sessionKey,
     AccountId: route.accountId,
     ChatType: event.chatType,
     ConversationLabel:
       event.chatType === "group" ? `VK chat ${event.peerId}` : `VK DM ${event.peerId}`,
-    SenderId: event.senderUserId,
+    SenderId: event.senderId,
     GroupSubject: event.chatType === "group" ? event.peerId : undefined,
-    MessageSid: event.conversationMessageId,
+    MessageSid: event.messageId,
     Timestamp: event.timestamp,
     Provider: VK_CHANNEL,
     Surface: VK_CHANNEL,
@@ -226,12 +226,12 @@ export async function routeVkInboundEvent(params: {
       groupAllowFrom: account.config.groupAllowFrom,
       storeAllowFrom: [],
       groupAllowFromFallbackToAllowFrom: false,
-      isSenderAllowed: (allowFrom) => normalizeVkSenderMatch(allowFrom, event.senderUserId),
+      isSenderAllowed: (allowFrom) => normalizeVkSenderMatch(allowFrom, event.senderId),
     });
 
     if (access.decision !== "allow") {
       ctx.log?.debug?.(
-        `[${account.accountId}] VK group ${event.peerId} sender ${event.senderUserId} blocked (${access.reason})`,
+        `[${account.accountId}] VK group ${event.peerId} sender ${event.senderId} blocked (${access.reason})`,
       );
       return;
     }
@@ -260,16 +260,16 @@ export async function routeVkInboundEvent(params: {
     groupAllowFrom: account.config.groupAllowFrom,
     storeAllowFrom,
     groupAllowFromFallbackToAllowFrom: false,
-    isSenderAllowed: (allowFrom) => normalizeVkSenderMatch(allowFrom, event.senderUserId),
+    isSenderAllowed: (allowFrom) => normalizeVkSenderMatch(allowFrom, event.senderId),
   });
 
   if (access.decision === "pairing") {
     await issuePairingChallenge({
       channel: VK_CHANNEL,
-      senderId: event.senderUserId,
-      senderIdLine: `Your VK user id: ${event.senderUserId}`,
+      senderId: event.senderId,
+      senderIdLine: `Your VK user id: ${event.senderId}`,
       meta: {
-        vkUserId: event.senderUserId,
+        vkUserId: event.senderId,
       },
       upsertPairingRequest: async ({ id, meta }) =>
         await upsertChannelPairingRequest({
@@ -291,7 +291,7 @@ export async function routeVkInboundEvent(params: {
       },
       onReplyError: (error) => {
         ctx.log?.error?.(
-          `[${account.accountId}] VK pairing reply failed for ${event.senderUserId}: ${formatVkRoutingError(error)}`,
+          `[${account.accountId}] VK pairing reply failed for ${event.senderId}: ${formatVkRoutingError(error)}`,
         );
       },
     });

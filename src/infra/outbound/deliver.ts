@@ -70,6 +70,7 @@ type ChannelHandler = {
   chunker: Chunker | null;
   chunkerMode?: "text" | "markdown";
   textChunkLimit?: number;
+  mixedTextMediaMode?: "caption-first-then-text";
   supportsMedia: boolean;
   normalizePayload?: (payload: ReplyPayload) => ReplyPayload | null;
   shouldSkipPlainTextSanitization?: (payload: ReplyPayload) => boolean;
@@ -177,6 +178,7 @@ function createPluginHandler(
     chunker,
     chunkerMode,
     textChunkLimit: outbound.textChunkLimit,
+    mixedTextMediaMode: outbound.mixedTextMediaMode,
     supportsMedia: Boolean(sendMedia),
     normalizePayload: outbound.normalizePayload
       ? (payload) => outbound.normalizePayload!({ payload })
@@ -595,18 +597,12 @@ async function deliverOutboundPayloadsCore(
     : configuredTextLimit;
   const chunkMode = handler.chunker ? resolveChunkMode(cfg, channel, accountId) : "length";
 
-  const sendTextChunks = async (
-    text: string,
-    overrides?: {
-      replyToId?: string | null;
-      threadId?: string | number | null;
-      audioAsVoice?: boolean;
-    },
-  ) => {
-    throwIfAborted(abortSignal);
+  const resolveTextChunks = (text: string): string[] => {
+    if (!text) {
+      return [];
+    }
     if (!handler.chunker || textLimit === undefined) {
-      results.push(await handler.sendText(text, overrides));
-      return;
+      return [text];
     }
     if (chunkMode === "newline") {
       const mode = handler.chunkerMode ?? "text";
@@ -618,20 +614,32 @@ async function deliverOutboundPayloadsCore(
       if (!blockChunks.length && text) {
         blockChunks.push(text);
       }
+      const resolvedChunks: string[] = [];
       for (const blockChunk of blockChunks) {
         const chunks = handler.chunker(blockChunk, textLimit);
         if (!chunks.length && blockChunk) {
           chunks.push(blockChunk);
         }
-        for (const chunk of chunks) {
-          throwIfAborted(abortSignal);
-          results.push(await handler.sendText(chunk, overrides));
-        }
+        resolvedChunks.push(...chunks);
       }
-      return;
+      return resolvedChunks;
     }
     const chunks = handler.chunker(text, textLimit);
-    for (const chunk of chunks) {
+    if (!chunks.length && text) {
+      return [text];
+    }
+    return chunks;
+  };
+
+  const sendTextChunks = async (
+    text: string,
+    overrides?: {
+      replyToId?: string | null;
+      threadId?: string | number | null;
+      audioAsVoice?: boolean;
+    },
+  ) => {
+    for (const chunk of resolveTextChunks(text)) {
       throwIfAborted(abortSignal);
       results.push(await handler.sendText(chunk, overrides));
     }
@@ -743,6 +751,36 @@ async function deliverOutboundPayloadsCore(
           success: results.length > beforeCount,
           content: payloadSummary.text,
           messageId,
+        });
+        continue;
+      }
+
+      if (handler.mixedTextMediaMode === "caption-first-then-text") {
+        const textChunks = resolveTextChunks(payloadSummary.text);
+        let nextTextIndex = 0;
+        let lastMessageId: string | undefined;
+        for (const url of payloadSummary.mediaUrls) {
+          throwIfAborted(abortSignal);
+          const caption = nextTextIndex === 0 ? (textChunks[0] ?? "") : "";
+          if (nextTextIndex === 0 && textChunks.length > 0) {
+            nextTextIndex = 1;
+          }
+          const delivery = handler.sendFormattedMedia
+            ? await handler.sendFormattedMedia(caption, url, sendOverrides)
+            : await handler.sendMedia(caption, url, sendOverrides);
+          results.push(delivery);
+          lastMessageId = delivery.messageId;
+        }
+        for (; nextTextIndex < textChunks.length; nextTextIndex += 1) {
+          throwIfAborted(abortSignal);
+          const delivery = await handler.sendText(textChunks[nextTextIndex], sendOverrides);
+          results.push(delivery);
+          lastMessageId = delivery.messageId;
+        }
+        emitMessageSent({
+          success: true,
+          content: payloadSummary.text,
+          messageId: lastMessageId,
         });
         continue;
       }

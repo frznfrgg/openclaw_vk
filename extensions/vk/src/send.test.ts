@@ -1,6 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mediaMocks = vi.hoisted(() => ({
+  resolveVkAttachmentToken: vi.fn(),
+}));
+
+vi.mock("./media.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./media.js")>();
+  return {
+    ...actual,
+    resolveVkAttachmentToken: mediaMocks.resolveVkAttachmentToken,
+  };
+});
+
 import { readVkRuntimeState, resetVkRuntimeStateForTests } from "./runtime.js";
-import { sendVkText } from "./send.js";
+import { sendVkMedia, sendVkText } from "./send.js";
 
 const baseCfg = {
   channels: {
@@ -15,6 +28,7 @@ const baseCfg = {
 describe("sendVkText", () => {
   beforeEach(() => {
     resetVkRuntimeStateForTests();
+    mediaMocks.resolveVkAttachmentToken.mockReset();
   });
 
   it("sends a DM through messages.send and returns a delivery result", async () => {
@@ -148,5 +162,62 @@ describe("sendVkText", () => {
         fetcher: fetcher as typeof fetch,
       }),
     ).rejects.toThrow("Can’t send messages for users without permission");
+  });
+
+  it("sends supported media through messages.send with a caption", async () => {
+    mediaMocks.resolveVkAttachmentToken.mockResolvedValue("photo-1_2");
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new URLSearchParams(String(init?.body));
+      expect(body.get("peer_id")).toBe("42");
+      expect(body.get("message")).toBe("caption text");
+      expect(body.get("attachment")).toBe("photo-1_2");
+      return new Response(JSON.stringify({ response: 781 }), { status: 200 });
+    });
+
+    const result = await sendVkMedia({
+      cfg: baseCfg,
+      to: "vk:user:42",
+      text: "caption text",
+      mediaUrl: "file:///tmp/photo.png",
+      mediaLocalRoots: ["/tmp"],
+      randomId: 12348,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(mediaMocks.resolveVkAttachmentToken).toHaveBeenCalledWith({
+      account: expect.objectContaining({
+        accountId: "default",
+        communityId: "123",
+      }),
+      mediaUrl: "file:///tmp/photo.png",
+      cfg: baseCfg,
+      mediaLocalRoots: ["/tmp"],
+      fetcher: fetcher as typeof fetch,
+    });
+    expect(result).toMatchObject({
+      channel: "vk",
+      messageId: "781",
+      chatId: "42",
+      conversationId: "vk:user:42",
+    });
+  });
+
+  it("allows attachment-only sends when the caption flattens to empty text", async () => {
+    mediaMocks.resolveVkAttachmentToken.mockResolvedValue("doc-1_3");
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new URLSearchParams(String(init?.body));
+      expect(body.get("message")).toBeNull();
+      expect(body.get("attachment")).toBe("doc-1_3");
+      return new Response(JSON.stringify({ response: 782 }), { status: 200 });
+    });
+
+    await sendVkMedia({
+      cfg: baseCfg,
+      to: "vk:chat:2000000001",
+      text: "   ",
+      mediaUrl: "https://example.com/report.pdf",
+      randomId: 12349,
+      fetcher: fetcher as typeof fetch,
+    });
   });
 });

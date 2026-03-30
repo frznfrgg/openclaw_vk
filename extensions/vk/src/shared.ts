@@ -82,6 +82,7 @@ export function createVkPluginBase(params: {
     ...(params.setupWizard ? { setupWizard: params.setupWizard } : {}),
     capabilities: {
       chatTypes: ["direct", "group"],
+      media: true,
     },
     reload: { configPrefixes: ["channels.vk"] },
     configSchema: buildChannelConfigSchema(VkConfigSchema),

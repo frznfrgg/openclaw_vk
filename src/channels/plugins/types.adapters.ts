@@ -189,6 +189,7 @@ export type ChannelOutboundAdapter = {
   chunker?: ((text: string, limit: number) => string[]) | null;
   chunkerMode?: "text" | "markdown";
   textChunkLimit?: number;
+  mixedTextMediaMode?: "caption-first-then-text";
   pollMaxOptions?: number;
   normalizePayload?: (params: { payload: ReplyPayload }) => ReplyPayload | null;
   shouldSkipPlainTextSanitization?: (params: { payload: ReplyPayload }) => boolean;

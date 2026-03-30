@@ -3,6 +3,7 @@ export * from "./src/account-inspect.js";
 export * from "./src/config-schema.js";
 export * from "./src/inbound-normalize.js";
 export * from "./src/inbound-routing.js";
+export * from "./src/media.js";
 export * from "./src/probe.js";
 export * from "./src/runtime.js";
 export * from "./src/send.js";

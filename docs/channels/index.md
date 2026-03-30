@@ -32,6 +32,7 @@ Text is supported everywhere; media and reactions vary by channel.
 - [Telegram](/channels/telegram) — Bot API via grammY; supports groups.
 - [Tlon](/channels/tlon) — Urbit-based messenger (plugin, installed separately).
 - [Twitch](/channels/twitch) — Twitch chat via IRC connection (plugin, installed separately).
+- [VK](/channels/vk) — VK community bot via Bots Long Poll; supports DMs, admitted group chats, and image/document delivery.
 - [Voice Call](/plugins/voice-call) — Telephony via Plivo or Twilio (plugin, installed separately).
 - [WebChat](/web/webchat) — Gateway WebChat UI over WebSocket.
 - [WeChat](https://www.npmjs.com/package/@tencent-weixin/openclaw-weixin) — Tencent iLink Bot plugin via QR login; private chats only.

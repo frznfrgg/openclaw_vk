@@ -196,6 +196,10 @@
     "target": "工具"
   },
   {
+    "source": "VK",
+    "target": "VK"
+  },
+  {
     "source": "CLI",
     "target": "CLI"
   },
@@ -302,5 +306,17 @@
   {
     "source": "Testing",
     "target": "测试"
+  },
+  {
+    "source": "Chat Channels",
+    "target": "聊天渠道"
+  },
+  {
+    "source": "Gateway configuration",
+    "target": "Gateway 配置"
+  },
+  {
+    "source": "Configuration Reference",
+    "target": "配置参考"
   }
 ]

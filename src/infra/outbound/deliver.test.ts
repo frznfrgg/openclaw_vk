@@ -624,6 +624,125 @@ describe("deliverOutboundPayloads", () => {
     expect(results[0]).toMatchObject({ channel: "signal", messageId: "s1" });
   });
 
+  it("uses caption-first-then-text fan-out for mixed media payloads", async () => {
+    const sendText = vi.fn().mockImplementation(async ({ text }: { text: string }) => ({
+      channel: "matrix" as const,
+      messageId: `text:${text}`,
+      roomId: "room-1",
+    }));
+    const sendMedia = vi.fn().mockImplementation(async ({ text, mediaUrl }) => ({
+      channel: "matrix" as const,
+      messageId: `media:${mediaUrl}`,
+      roomId: "room-1",
+      meta: { caption: text },
+    }));
+    setActivePluginRegistry(
+      createTestRegistry([
+        {
+          pluginId: "matrix",
+          source: "test",
+          plugin: createOutboundTestPlugin({
+            id: "matrix",
+            outbound: {
+              deliveryMode: "direct",
+              chunker: (text, limit) => text.match(new RegExp(`.{1,${limit}}`, "g")) ?? [],
+              chunkerMode: "text",
+              textChunkLimit: 4,
+              mixedTextMediaMode: "caption-first-then-text",
+              sendText,
+              sendMedia,
+            },
+          }),
+        },
+      ]),
+    );
+
+    const results = await deliverOutboundPayloads({
+      cfg: { channels: { matrix: { textChunkLimit: 4 } } },
+      channel: "matrix",
+      to: "!room",
+      payloads: [
+        {
+          text: "abcdefghij",
+          mediaUrls: ["https://example.com/one.png", "https://example.com/two.png"],
+        },
+      ],
+    });
+
+    expect(sendMedia).toHaveBeenCalledTimes(2);
+    expect(sendMedia).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        text: "abcd",
+        mediaUrl: "https://example.com/one.png",
+      }),
+    );
+    expect(sendMedia).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        text: "",
+        mediaUrl: "https://example.com/two.png",
+      }),
+    );
+    expect(sendText).toHaveBeenCalledTimes(2);
+    expect(sendText).toHaveBeenNthCalledWith(1, expect.objectContaining({ text: "efgh" }));
+    expect(sendText).toHaveBeenNthCalledWith(2, expect.objectContaining({ text: "ij" }));
+    expect(results.map((entry) => entry.messageId)).toEqual([
+      "media:https://example.com/one.png",
+      "media:https://example.com/two.png",
+      "text:efgh",
+      "text:ij",
+    ]);
+  });
+
+  it("keeps empty captions when caption-first-then-text payloads have no text", async () => {
+    const sendText = vi.fn();
+    const sendMedia = vi.fn().mockImplementation(async ({ text, mediaUrl }) => ({
+      channel: "matrix" as const,
+      messageId: `media:${mediaUrl}`,
+      roomId: "room-1",
+      meta: { caption: text },
+    }));
+    setActivePluginRegistry(
+      createTestRegistry([
+        {
+          pluginId: "matrix",
+          source: "test",
+          plugin: createOutboundTestPlugin({
+            id: "matrix",
+            outbound: {
+              deliveryMode: "direct",
+              chunker: (text, limit) => text.match(new RegExp(`.{1,${limit}}`, "g")) ?? [],
+              chunkerMode: "text",
+              textChunkLimit: 4,
+              mixedTextMediaMode: "caption-first-then-text",
+              sendText,
+              sendMedia,
+            },
+          }),
+        },
+      ]),
+    );
+
+    await deliverOutboundPayloads({
+      cfg: { channels: { matrix: { textChunkLimit: 4 } } },
+      channel: "matrix",
+      to: "!room",
+      payloads: [{ mediaUrls: ["https://example.com/one.png", "https://example.com/two.png"] }],
+    });
+
+    expect(sendMedia).toHaveBeenCalledTimes(2);
+    expect(sendMedia).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ text: "", mediaUrl: "https://example.com/one.png" }),
+    );
+    expect(sendMedia).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ text: "", mediaUrl: "https://example.com/two.png" }),
+    );
+    expect(sendText).not.toHaveBeenCalled();
+  });
+
   it("chunks Signal markdown using the format-first chunker", async () => {
     const sendSignal = vi.fn().mockResolvedValue({ messageId: "s1", timestamp: 123 });
     const cfg: OpenClawConfig = {

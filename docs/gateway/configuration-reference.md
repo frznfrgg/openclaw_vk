@@ -210,6 +210,40 @@ WhatsApp runs through the gateway's web channel (Baileys Web). It starts automat
 - Telegram stream previews use `sendMessage` + `editMessageText` (works in direct and group chats).
 - Retry policy: see [Retry policy](/concepts/retry).
 
+### VK
+
+```json5
+{
+  channels: {
+    vk: {
+      enabled: true,
+      communityId: "123456",
+      communityAccessToken: {
+        source: "env",
+        provider: "default",
+        id: "VK_COMMUNITY_ACCESS_TOKEN",
+      },
+      dmPolicy: "pairing",
+      allowFrom: ["123456789"],
+      groupPolicy: "allowlist",
+      groupAllowFrom: ["123456789"],
+      groups: {
+        "2000000001": { enabled: true },
+      },
+      defaultTo: "vk:user:123456789",
+    },
+  },
+}
+```
+
+- `communityId` is the VK community ID. One OpenClaw instance supports one community in v1.
+- Credential source: exactly one of `communityAccessToken`, `tokenFile`, or the env SecretRef target `VK_COMMUNITY_ACCESS_TOKEN`.
+- `openclaw channels add --channel vk` and onboarding validate the candidate config by calling `groups.getLongPollServer` before write.
+- `dmPolicy`, `allowFrom`, `groupPolicy`, and `groupAllowFrom` follow the shared DM/group access semantics at the top of this page.
+- `groups` is the admitted VK conversation allowlist for group-chat routing. In v1 it is config-only.
+- `defaultTo` accepts canonical explicit targets only: `vk:user:<user_id>` or `vk:chat:<peer_id>`.
+- Outbound media support is limited to images (JPG, PNG, GIF up to 50 MB) and documents (most formats up to 200 MB except MP3 and executable files).
+
 ### Discord
 
 ```json5

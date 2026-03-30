@@ -1,9 +1,11 @@
 import { randomInt } from "node:crypto";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
 import { stripMarkdown } from "openclaw/plugin-sdk/text-runtime";
+import type { ChannelOutboundContext } from "../../../src/channels/plugins/types.adapters.js";
 import type { OutboundDeliveryResult } from "../../../src/infra/outbound/deliver.js";
 import { sanitizeForPlainText } from "../../../src/infra/outbound/sanitize-text.js";
 import { inspectVkAccount } from "./account-inspect.js";
+import { resolveVkAttachmentToken } from "./media.js";
 import { writeVkRuntimeState } from "./runtime.js";
 import { VK_API_BASE, VK_API_VERSION, VK_DEFAULT_ACCOUNT_ID } from "./shared.js";
 import { parseVkTarget } from "./targets.js";
@@ -44,19 +46,7 @@ function resolveVkPeerTarget(raw: string): { canonicalTarget: string; peerId: st
   };
 }
 
-export async function sendVkText(params: {
-  cfg: OpenClawConfig;
-  to: string;
-  text: string;
-  accountId?: string | null;
-  fetcher?: typeof fetch;
-  randomId?: number;
-}): Promise<OutboundDeliveryResult> {
-  const message = flattenVkTextSegment(params.text);
-  if (!message) {
-    throw new Error("VK sendText requires non-empty message text.");
-  }
-
+function resolveVkSendAccount(params: { cfg: OpenClawConfig; accountId?: string | null }) {
   const accountId = params.accountId?.trim() || VK_DEFAULT_ACCOUNT_ID;
   const inspected = inspectVkAccount({
     cfg: params.cfg,
@@ -69,11 +59,37 @@ export async function sendVkText(params: {
   if (!account) {
     throw new Error("VK is disabled.");
   }
+  return { accountId, account };
+}
 
+async function sendVkMessage(params: {
+  cfg: OpenClawConfig;
+  to: string;
+  accountId?: string | null;
+  message?: string;
+  attachment?: string;
+  fetcher?: typeof fetch;
+  randomId?: number;
+}): Promise<OutboundDeliveryResult> {
+  const message = params.message?.trim() ?? "";
+  const attachment = params.attachment?.trim() ?? "";
+  if (!message && !attachment) {
+    throw new Error("VK send requires either message text or an attachment.");
+  }
+
+  const { accountId, account } = resolveVkSendAccount({
+    cfg: params.cfg,
+    accountId: params.accountId,
+  });
   const target = resolveVkPeerTarget(params.to);
   const body = new URLSearchParams();
   body.set("peer_id", target.peerId);
-  body.set("message", message);
+  if (message) {
+    body.set("message", message);
+  }
+  if (attachment) {
+    body.set("attachment", attachment);
+  }
   body.set("random_id", String(params.randomId ?? buildVkRandomId()));
   body.set("access_token", account.token);
   body.set("v", VK_API_VERSION);
@@ -122,4 +138,56 @@ export async function sendVkText(params: {
     conversationId: target.canonicalTarget,
     timestamp,
   };
+}
+
+export async function sendVkText(
+  params: ChannelOutboundContext & {
+    fetcher?: typeof fetch;
+    randomId?: number;
+  },
+): Promise<OutboundDeliveryResult> {
+  const message = flattenVkTextSegment(params.text);
+  if (!message) {
+    throw new Error("VK sendText requires non-empty message text.");
+  }
+  return await sendVkMessage({
+    cfg: params.cfg,
+    to: params.to,
+    accountId: params.accountId,
+    message,
+    fetcher: params.fetcher,
+    randomId: params.randomId,
+  });
+}
+
+export async function sendVkMedia(
+  params: ChannelOutboundContext & {
+    fetcher?: typeof fetch;
+    randomId?: number;
+  },
+): Promise<OutboundDeliveryResult> {
+  if (!params.mediaUrl?.trim()) {
+    throw new Error("VK sendMedia requires mediaUrl.");
+  }
+  const message = flattenVkTextSegment(params.text);
+  const { account } = resolveVkSendAccount({
+    cfg: params.cfg,
+    accountId: params.accountId,
+  });
+  const attachment = await resolveVkAttachmentToken({
+    account,
+    mediaUrl: params.mediaUrl,
+    cfg: params.cfg,
+    mediaLocalRoots: params.mediaLocalRoots,
+    fetcher: params.fetcher,
+  });
+  return await sendVkMessage({
+    cfg: params.cfg,
+    to: params.to,
+    accountId: params.accountId,
+    message: message || undefined,
+    attachment,
+    fetcher: params.fetcher,
+    randomId: params.randomId,
+  });
 }
