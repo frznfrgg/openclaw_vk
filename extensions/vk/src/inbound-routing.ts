@@ -23,7 +23,7 @@ type VkStatusSinkPatch = {
   lastInboundAt?: number;
   lastOutboundAt?: number;
   connected?: boolean;
-  lastError?: unknown;
+  lastError?: string | null;
 };
 
 type VkGroupAdmissionDecision =

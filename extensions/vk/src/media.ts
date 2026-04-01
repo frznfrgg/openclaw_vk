@@ -192,9 +192,14 @@ async function uploadVkMultipart(params: {
   mediaUrl: string;
 }): Promise<Record<string, unknown>> {
   const form = new FormData();
+  const blobPart = new Uint8Array(
+    params.loaded.buffer.buffer,
+    params.loaded.buffer.byteOffset,
+    params.loaded.buffer.byteLength,
+  );
   form.set(
     params.fieldName,
-    new Blob([params.loaded.buffer], {
+    new Blob([blobPart], {
       type: params.loaded.contentType ?? "application/octet-stream",
     }),
     resolveUploadFileName({ loaded: params.loaded, fallback: params.mediaUrl }),

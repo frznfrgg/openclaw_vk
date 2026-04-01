@@ -132,13 +132,10 @@ export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
     },
   },
   allowlist: {
-    supportsScope: ({ scope }) => scope === "dm" || scope === "group" || scope === "all",
+    supportsScope: ({ scope }) => scope === "dm" || scope === "group",
     readConfig: ({ cfg, accountId }) =>
       readVkAllowlistConfig(vkPlugin.config.resolveAccount(cfg, accountId)),
     applyConfigEdit: (params) => {
-      if (params.scope === "all") {
-        return null;
-      }
       if (params.entry.trim() === "*") {
         return { kind: "invalid-entry" };
       }
