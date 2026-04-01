@@ -1,3 +1,8 @@
+import {
+  hasControlCommand,
+  shouldComputeCommandAuthorized,
+} from "../../../src/auto-reply/command-detection.js";
+import { resolveCommandAuthorizedFromAuthorizers } from "../../../src/channels/command-gating.js";
 import type { ChannelGatewayContext } from "../../../src/channels/plugins/types.adapters.js";
 import {
   resolveAllowlistProviderRuntimeGroupPolicy,
@@ -12,8 +17,8 @@ import {
   readStoreAllowFromForDmPolicy,
   resolveDmGroupAccessWithLists,
 } from "../../../src/security/dm-policy-shared.js";
-import type { VkInboundEvent } from "./inbound-normalize.js";
 import { materializeVkInboundMedia } from "./inbound-media.js";
+import type { VkInboundEvent } from "./inbound-normalize.js";
 import { getVkRuntime } from "./runtime.js";
 import { sendVkText, sendVkTyping } from "./send.js";
 import type { InspectedVkAccount, ResolvedVkAccount } from "./shared.js";
@@ -45,6 +50,36 @@ function normalizeVkSenderMatch(allowFrom: string[], senderId: string): boolean 
 
 function resolveVkOriginatingTarget(event: VkInboundEvent): string {
   return event.chatType === "group" ? `vk:chat:${event.peerId}` : `vk:user:${event.peerId}`;
+}
+
+function resolveVkCommandBody(rawBody: string): string {
+  return rawBody.trim() === "/help" ? "/commands" : rawBody;
+}
+
+function resolveVkCommandAuthorization(params: {
+  cfg: ChannelGatewayContext<InspectedVkAccount>["cfg"];
+  rawBody: string;
+  senderId: string;
+  effectiveAllowFrom: string[];
+  effectiveGroupAllowFrom?: string[];
+}): boolean | undefined {
+  const shouldComputeAuth = shouldComputeCommandAuthorized(params.rawBody, params.cfg);
+  if (!shouldComputeAuth) {
+    return undefined;
+  }
+  return resolveCommandAuthorizedFromAuthorizers({
+    useAccessGroups: params.cfg.commands?.useAccessGroups !== false,
+    authorizers: [
+      {
+        configured: params.effectiveAllowFrom.length > 0,
+        allowed: normalizeVkSenderMatch(params.effectiveAllowFrom, params.senderId),
+      },
+      {
+        configured: (params.effectiveGroupAllowFrom?.length ?? 0) > 0,
+        allowed: normalizeVkSenderMatch(params.effectiveGroupAllowFrom ?? [], params.senderId),
+      },
+    ],
+  });
 }
 
 function resolveVkGroupAdmission(params: {
@@ -97,6 +132,7 @@ async function dispatchVkInboundConversation(params: {
   ctx: Pick<ChannelGatewayContext<InspectedVkAccount>, "cfg" | "accountId" | "runtime" | "log">;
   account: ResolvedVkAccount;
   event: VkInboundEvent;
+  commandAuthorized?: boolean;
   statusSink: (patch: VkStatusSinkPatch) => void;
 }) {
   const { ctx, account, event, statusSink } = params;
@@ -123,6 +159,7 @@ async function dispatchVkInboundConversation(params: {
     log: ctx.log,
   });
   const rawBody = event.text.trim();
+  const commandBody = resolveVkCommandBody(rawBody);
   const body = core.channel.reply.formatAgentEnvelope({
     channel: "VK",
     from: `user ${event.senderId}`,
@@ -135,7 +172,7 @@ async function dispatchVkInboundConversation(params: {
   const ctxPayload = core.channel.reply.finalizeInboundContext({
     Body: body,
     RawBody: rawBody,
-    CommandBody: rawBody,
+    CommandBody: commandBody,
     From: event.chatType === "group" ? `vk:chat:${event.peerId}` : `vk:user:${event.senderId}`,
     To: originatingTarget,
     SessionKey: route.sessionKey,
@@ -153,7 +190,7 @@ async function dispatchVkInboundConversation(params: {
     WasMentioned: event.chatType === "group" ? true : undefined,
     OriginatingChannel: VK_CHANNEL,
     OriginatingTo: originatingTarget,
-    CommandAuthorized: false,
+    CommandAuthorized: params.commandAuthorized === true,
   });
 
   await dispatchInboundReplyWithBase({
@@ -223,6 +260,8 @@ export async function routeVkInboundEvent(params: {
     channel: VK_CHANNEL,
     accountId: account.accountId,
   });
+  const rawBody = event.text.trim();
+  const hasControl = hasControlCommand(rawBody, ctx.cfg);
 
   if (event.chatType === "group") {
     const groupAdmission = resolveVkGroupAdmission({
@@ -260,10 +299,25 @@ export async function routeVkInboundEvent(params: {
       return;
     }
 
+    const commandAuthorized = resolveVkCommandAuthorization({
+      cfg: ctx.cfg,
+      rawBody,
+      senderId: event.senderId,
+      effectiveAllowFrom: access.effectiveAllowFrom,
+      effectiveGroupAllowFrom: access.effectiveGroupAllowFrom,
+    });
+    if (hasControl && commandAuthorized !== true) {
+      ctx.log?.debug?.(
+        `[${account.accountId}] VK control command from unauthorized group sender ${event.senderId} blocked`,
+      );
+      return;
+    }
+
     await dispatchVkInboundConversation({
       ctx,
       account,
       event,
+      commandAuthorized,
       statusSink,
     });
     return;
@@ -327,10 +381,19 @@ export async function routeVkInboundEvent(params: {
     return;
   }
 
+  const commandAuthorized = resolveVkCommandAuthorization({
+    cfg: ctx.cfg,
+    rawBody,
+    senderId: event.senderId,
+    effectiveAllowFrom: access.effectiveAllowFrom,
+    effectiveGroupAllowFrom: access.effectiveGroupAllowFrom,
+  });
+
   await dispatchVkInboundConversation({
     ctx,
     account,
     event,
+    commandAuthorized,
     statusSink,
   });
 }

@@ -42,6 +42,12 @@ const baseAccount: ResolvedVkAccount = {
 function installRuntime() {
   setVkRuntime({
     channel: {
+      commands: {
+        shouldComputeCommandAuthorized: vi.fn((body: string) => body.trim().startsWith("/")),
+        resolveCommandAuthorizedFromAuthorizers: vi.fn((params: any) =>
+          params.authorizers.some((entry: any) => entry.configured && entry.allowed),
+        ),
+      },
       routing: {
         resolveAgentRoute: vi.fn(({ peer }: { peer: { kind: string; id: string } }) => ({
           agentId: "agent-1",
@@ -154,6 +160,7 @@ describe("routeVkInboundEvent group routing", () => {
       WasMentioned: true,
       GroupSubject: "2000000001",
       SessionKey: "vk:group:2000000001",
+      CommandAuthorized: false,
     });
     expect(mocks.sendVkText).toHaveBeenCalledWith({
       cfg: {},
@@ -237,5 +244,73 @@ describe("routeVkInboundEvent group routing", () => {
 
     expect(mocks.dispatchInboundReplyWithBase).not.toHaveBeenCalled();
     expect(mocks.sendVkText).not.toHaveBeenCalled();
+  });
+
+  it("authorizes admitted group slash commands and maps bare /help to the command list", async () => {
+    await routeVkInboundEvent({
+      ctx: {
+        cfg: {},
+        accountId: "default",
+        runtime: { error: vi.fn() } as never,
+        log: { debug: vi.fn(), error: vi.fn() } as never,
+      },
+      account: {
+        ...baseAccount,
+        config: {
+          ...baseAccount.config,
+          groupPolicy: "allowlist",
+          groupAllowFrom: ["77"],
+        },
+      },
+      event: {
+        eventId: "evt-group-help-1",
+        peerId: "2000000001",
+        senderId: "77",
+        messageId: "19",
+        text: "/help",
+        attachments: [],
+        timestamp: 1_700_000_000_000,
+        chatType: "group",
+      },
+      statusSink: vi.fn(),
+    });
+
+    expect(mocks.dispatchInboundReplyWithBase).toHaveBeenCalledTimes(1);
+    expect(mocks.dispatchInboundReplyWithBase.mock.calls[0][0].ctxPayload).toMatchObject({
+      RawBody: "/help",
+      CommandBody: "/commands",
+      CommandAuthorized: true,
+    });
+  });
+
+  it("blocks unauthorized group control commands even when group chat access is open", async () => {
+    await routeVkInboundEvent({
+      ctx: {
+        cfg: {},
+        accountId: "default",
+        runtime: { error: vi.fn() } as never,
+        log: { debug: vi.fn(), error: vi.fn() } as never,
+      },
+      account: {
+        ...baseAccount,
+        config: {
+          ...baseAccount.config,
+          groupPolicy: "open",
+        },
+      },
+      event: {
+        eventId: "evt-group-new-1",
+        peerId: "2000000001",
+        senderId: "77",
+        messageId: "20",
+        text: "/new",
+        attachments: [],
+        timestamp: 1_700_000_000_000,
+        chatType: "group",
+      },
+      statusSink: vi.fn(),
+    });
+
+    expect(mocks.dispatchInboundReplyWithBase).not.toHaveBeenCalled();
   });
 });

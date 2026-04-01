@@ -47,6 +47,12 @@ const baseAccount: ResolvedVkAccount = {
 function installRuntime(params?: { storeAllowFrom?: string[] }) {
   setVkRuntime({
     channel: {
+      commands: {
+        shouldComputeCommandAuthorized: vi.fn((body: string) => body.trim().startsWith("/")),
+        resolveCommandAuthorizedFromAuthorizers: vi.fn((params: any) =>
+          params.authorizers.some((entry: any) => entry.configured && entry.allowed),
+        ),
+      },
       routing: {
         resolveAgentRoute: vi.fn(() => ({
           agentId: "agent-1",
@@ -136,6 +142,7 @@ describe("routeVkInboundEvent", () => {
       OriginatingTo: "vk:user:42",
       SessionKey: "vk:default:42",
       SenderId: "42",
+      CommandAuthorized: false,
     });
 
     expect(mocks.sendVkText).toHaveBeenCalledWith({
@@ -321,5 +328,43 @@ describe("routeVkInboundEvent", () => {
     expect(mocks.dispatchInboundReplyWithBase).not.toHaveBeenCalled();
     expect(mocks.sendVkText).not.toHaveBeenCalled();
     expect(mocks.upsertChannelPairingRequest).not.toHaveBeenCalled();
+  });
+
+  it("marks paired DM slash commands as authorized and maps bare /help to the command list", async () => {
+    installRuntime({ storeAllowFrom: ["42"] });
+
+    await routeVkInboundEvent({
+      ctx: {
+        cfg: {},
+        accountId: "default",
+        runtime: { error: vi.fn() } as never,
+        log: { debug: vi.fn(), error: vi.fn() } as never,
+      },
+      account: {
+        ...baseAccount,
+        config: {
+          ...baseAccount.config,
+          dmPolicy: "pairing",
+        },
+      },
+      event: {
+        eventId: "evt-help-1",
+        peerId: "42",
+        senderId: "42",
+        messageId: "21",
+        text: "/help",
+        attachments: [],
+        timestamp: 1_700_000_000_000,
+        chatType: "direct",
+      },
+      statusSink: vi.fn(),
+    });
+
+    expect(mocks.dispatchInboundReplyWithBase).toHaveBeenCalledTimes(1);
+    expect(mocks.dispatchInboundReplyWithBase.mock.calls[0][0].ctxPayload).toMatchObject({
+      RawBody: "/help",
+      CommandBody: "/commands",
+      CommandAuthorized: true,
+    });
   });
 });
