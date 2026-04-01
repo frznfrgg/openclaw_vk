@@ -864,6 +864,30 @@ describe("message tool description", () => {
     expect(tool.description).toContain("Current channel (bluebubbles) supports:");
     expect(tool.description).not.toContain("Other configured channels");
   });
+
+  it("mentions media/file attachments when the current channel supports media", () => {
+    const vkPlugin = createChannelPlugin({
+      id: "vk",
+      label: "VK",
+      docsPath: "/channels/vk",
+      blurb: "VK test plugin.",
+      actions: ["send"],
+    });
+
+    setActivePluginRegistry(
+      createTestRegistry([{ pluginId: "vk", source: "test", plugin: vkPlugin }]),
+    );
+
+    const tool = createMessageTool({
+      config: {} as never,
+      currentChannelProvider: "vk",
+    });
+
+    expect(tool.description).toContain("Current channel (vk) supports: send.");
+    expect(tool.description).toContain(
+      "Supports media/file attachments via send with media, path, or filePath.",
+    );
+  });
 });
 
 describe("message tool reasoning tag sanitization", () => {

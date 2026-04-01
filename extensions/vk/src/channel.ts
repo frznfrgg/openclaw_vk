@@ -1,5 +1,6 @@
 import { buildAccountScopedAllowlistConfigEditor } from "openclaw/plugin-sdk/allowlist-config-edit";
 import { createScopedDmSecurityResolver } from "openclaw/plugin-sdk/channel-config-helpers";
+import type { ChannelMessageActionAdapter } from "openclaw/plugin-sdk/channel-contract";
 import { createAccountStatusSink } from "openclaw/plugin-sdk/channel-lifecycle";
 import {
   collectAllowlistProviderGroupPolicyWarnings,
@@ -116,11 +117,18 @@ const resolveVkDmSecurity = createScopedDmSecurityResolver<InspectedVkAccount>({
   normalizeEntry: normalizeVkAllowEntry,
 });
 
+const vkMessageActions: ChannelMessageActionAdapter = {
+  describeMessageTool: () => ({
+    actions: ["send"],
+  }),
+};
+
 export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
   ...createVkPluginBase({
     setupWizard: vkSetupWizard,
     setup: vkSetupAdapter,
   }),
+  actions: vkMessageActions,
   auth: vkApprovalAuth,
   pairing: {
     idLabel: "vkUserId",

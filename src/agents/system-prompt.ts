@@ -128,6 +128,8 @@ function buildMessagingSection(params: {
           "### message tool",
           "- Use `message` for proactive sends + channel actions (polls, reactions, etc.).",
           "- For `action=send`, include `to` and `message`.",
+          "- To send a generated/local file or image, use `action=send` with `media` (or `path`/`filePath`) pointing to the file path or URL.",
+          "- Current-session file sends still route through the active chat when you use the message tool correctly; do not assume attachments require a separate channel-specific tool.",
           `- If multiple channels are configured, pass \`channel\` (${params.messageChannelOptions}).`,
           `- If you use \`message\` (\`action=send\`) to deliver your user-visible reply, respond with ONLY: ${SILENT_REPLY_TOKEN} (avoid duplicate replies).`,
           params.inlineButtonsEnabled

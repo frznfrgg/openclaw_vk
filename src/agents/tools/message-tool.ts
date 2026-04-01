@@ -1,5 +1,5 @@
 import { Type, type TSchema } from "@sinclair/typebox";
-import { listChannelPlugins } from "../../channels/plugins/index.js";
+import { getChannelPlugin, listChannelPlugins } from "../../channels/plugins/index.js";
 import {
   channelSupportsMessageCapability,
   channelSupportsMessageCapabilityForChannel,
@@ -570,6 +570,7 @@ function buildMessageToolDescription(options?: {
 
   // If we have a current channel, show its actions and list other configured channels
   if (currentChannel) {
+    const currentPlugin = getChannelPlugin(currentChannel as Parameters<typeof getChannelPlugin>[0]);
     const channelActions = listChannelSupportedActions({
       cfg: resolvedOptions.config,
       channel: currentChannel,
@@ -587,6 +588,10 @@ function buildMessageToolDescription(options?: {
       const allActions = new Set(["send", ...channelActions]);
       const actionList = Array.from(allActions).toSorted().join(", ");
       let desc = `${baseDescription} Current channel (${currentChannel}) supports: ${actionList}.`;
+      if (currentPlugin?.capabilities.media) {
+        desc +=
+          " Supports media/file attachments via send with media, path, or filePath.";
+      }
 
       // Include other configured channels so cron/isolated agents can discover them
       const otherChannels: string[] = [];
