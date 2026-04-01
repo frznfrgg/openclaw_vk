@@ -192,11 +192,8 @@ async function uploadVkMultipart(params: {
   mediaUrl: string;
 }): Promise<Record<string, unknown>> {
   const form = new FormData();
-  const blobPart = new Uint8Array(
-    params.loaded.buffer.buffer,
-    params.loaded.buffer.byteOffset,
-    params.loaded.buffer.byteLength,
-  );
+  const blobPart = new Uint8Array(params.loaded.buffer.byteLength);
+  blobPart.set(params.loaded.buffer);
   form.set(
     params.fieldName,
     new Blob([blobPart], {
