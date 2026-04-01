@@ -113,6 +113,58 @@ describe("sendVkText", () => {
     });
   });
 
+  it("strips fenced markdown formatting from approval-style replies", async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new URLSearchParams(String(init?.body));
+      expect(body.get("message")).toBe(`Approval required.
+
+Run:
+
+/approve e22d7f97 allow-once
+
+Pending command:
+
+sudo apt-get install -y python3.12-venv && python3 -m venv .venv
+
+Other options:
+
+/approve e22d7f97 allow-always
+/approve e22d7f97 deny
+
+Full id: e22d7f97-7e7c-4122-a766-7dc545e6381f`);
+      return new Response(JSON.stringify({ response: 7791 }), { status: 200 });
+    });
+
+    await sendVkText({
+      cfg: baseCfg,
+      to: "vk:user:42",
+      text: `Approval required.
+
+Run:
+
+\`\`\`txt
+/approve e22d7f97 allow-once
+\`\`\`
+
+Pending command:
+
+\`\`\`sh
+sudo apt-get install -y python3.12-venv && python3 -m venv .venv
+\`\`\`
+
+Other options:
+
+\`\`\`txt
+/approve e22d7f97 allow-always
+/approve e22d7f97 deny
+\`\`\`
+
+Full id: \`e22d7f97-7e7c-4122-a766-7dc545e6381f\``,
+      randomId: 123471,
+      fetcher: fetcher as typeof fetch,
+    });
+  });
+
   it("uses a seeded monotonic random_id sequence when the caller does not provide one", async () => {
     const randomIds: number[] = [];
     const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
