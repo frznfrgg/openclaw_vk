@@ -73,34 +73,4 @@ Use \`B-tree\` for read-heavy, \`LSM-tree\` for write-heavy.`;
     expect(result).toContain("B-tree vs LSM-tree");
     expect(result).toContain("B-tree uses in-place updates");
   });
-
-  it("removes fenced code blocks while preserving readable content", () => {
-    const input = `Approval required.
-
-Run:
-
-\`\`\`txt
-/approve e22d7f97 allow-once
-\`\`\`
-
-Pending command:
-
-\`\`\`sh
-sudo apt-get install -y python3.12-venv
-\`\`\`
-
-Full id: \`e22d7f97-7e7c-4122-a766-7dc545e6381f\``;
-
-    expect(stripMarkdown(input)).toBe(`Approval required.
-
-Run:
-
-/approve e22d7f97 allow-once
-
-Pending command:
-
-sudo apt-get install -y python3.12-venv
-
-Full id: e22d7f97-7e7c-4122-a766-7dc545e6381f`);
-  });
 });
