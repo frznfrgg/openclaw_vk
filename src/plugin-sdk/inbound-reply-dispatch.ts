@@ -8,6 +8,10 @@ import type { FinalizedMsgContext } from "../auto-reply/templating.js";
 import type { GetReplyOptions } from "../auto-reply/types.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { createChannelReplyPipeline } from "./channel-reply-pipeline.js";
+import type {
+  CreateTypingCallbacksParams,
+  TypingCallbacks,
+} from "./channel-reply-pipeline.js";
 import { createNormalizedOutboundDeliverer, type OutboundReplyPayload } from "./reply-payload.js";
 
 type ReplyOptionsWithoutModelSelected = Omit<
@@ -89,7 +93,7 @@ export async function dispatchInboundReplyWithBase(
   params: BuildInboundReplyDispatchBaseParams &
     Pick<
       RecordInboundSessionAndDispatchReplyParams,
-      "deliver" | "onRecordError" | "onDispatchError" | "replyOptions"
+      "deliver" | "onRecordError" | "onDispatchError" | "replyOptions" | "typing" | "typingCallbacks"
     >,
 ): Promise<void> {
   const dispatchBase = buildInboundReplyDispatchBase(params);
@@ -99,6 +103,8 @@ export async function dispatchInboundReplyWithBase(
     onRecordError: params.onRecordError,
     onDispatchError: params.onDispatchError,
     replyOptions: params.replyOptions,
+    typing: params.typing,
+    typingCallbacks: params.typingCallbacks,
   });
 }
 
@@ -117,6 +123,8 @@ export async function recordInboundSessionAndDispatchReply(params: {
   onRecordError: (err: unknown) => void;
   onDispatchError: (err: unknown, info: { kind: string }) => void;
   replyOptions?: ReplyOptionsWithoutModelSelected;
+  typing?: CreateTypingCallbacksParams;
+  typingCallbacks?: TypingCallbacks;
 }): Promise<void> {
   await params.recordInboundSession({
     storePath: params.storePath,
@@ -130,6 +138,8 @@ export async function recordInboundSessionAndDispatchReply(params: {
     agentId: params.agentId,
     channel: params.channel,
     accountId: params.accountId,
+    typing: params.typing,
+    typingCallbacks: params.typingCallbacks,
   });
   const deliver = createNormalizedOutboundDeliverer(params.deliver);
 

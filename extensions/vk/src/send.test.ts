@@ -13,7 +13,7 @@ vi.mock("./media.js", async (importOriginal) => {
 });
 
 import { readVkRuntimeState, resetVkRuntimeStateForTests } from "./runtime.js";
-import { sendVkMedia, sendVkText } from "./send.js";
+import { sendVkMedia, sendVkText, sendVkTyping } from "./send.js";
 
 const baseCfg = {
   channels: {
@@ -162,6 +162,39 @@ describe("sendVkText", () => {
         fetcher: fetcher as typeof fetch,
       }),
     ).rejects.toThrow("Can’t send messages for users without permission");
+  });
+
+  it("sends typing activity through messages.setActivity", async () => {
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("https://api.vk.com/method/messages.setActivity");
+      expect(init?.method).toBe("POST");
+      const body = new URLSearchParams(String(init?.body));
+      expect(body.get("peer_id")).toBe("42");
+      expect(body.get("type")).toBe("typing");
+      expect(body.get("access_token")).toBe("vk-token");
+      return new Response(JSON.stringify({ response: 1 }), { status: 200 });
+    });
+
+    await sendVkTyping({
+      cfg: baseCfg,
+      to: "vk:user:42",
+      fetcher: fetcher as typeof fetch,
+    });
+  });
+
+  it("supports group chat typing activity on canonical chat targets", async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = new URLSearchParams(String(init?.body));
+      expect(body.get("peer_id")).toBe("2000000001");
+      expect(body.get("type")).toBe("typing");
+      return new Response(JSON.stringify({ response: 1 }), { status: 200 });
+    });
+
+    await sendVkTyping({
+      cfg: baseCfg,
+      to: "vk:chat:2000000001",
+      fetcher: fetcher as typeof fetch,
+    });
   });
 
   it("sends supported media through messages.send with a caption", async () => {

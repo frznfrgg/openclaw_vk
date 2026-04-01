@@ -5,6 +5,7 @@ import {
 } from "../../../src/config/runtime-group-policy.js";
 import { issuePairingChallenge } from "../../../src/pairing/pairing-challenge.js";
 import { upsertChannelPairingRequest } from "../../../src/pairing/pairing-store.js";
+import { logTypingFailure } from "../../../src/plugin-sdk/channel-feedback.js";
 import { dispatchInboundReplyWithBase } from "../../../src/plugin-sdk/inbound-reply-dispatch.js";
 import { createScopedPairingAccess } from "../../../src/plugin-sdk/pairing-access.js";
 import {
@@ -14,7 +15,7 @@ import {
 import type { VkInboundEvent } from "./inbound-normalize.js";
 import { materializeVkInboundMedia } from "./inbound-media.js";
 import { getVkRuntime } from "./runtime.js";
-import { sendVkText } from "./send.js";
+import { sendVkText, sendVkTyping } from "./send.js";
 import type { InspectedVkAccount, ResolvedVkAccount } from "./shared.js";
 
 const VK_CHANNEL = "vk" as const;
@@ -177,6 +178,23 @@ async function dispatchVkInboundConversation(params: {
       statusSink({
         lastOutboundAt: Date.now(),
       });
+    },
+    typing: {
+      start: async () => {
+        await sendVkTyping({
+          cfg: ctx.cfg,
+          accountId: account.accountId,
+          to: originatingTarget,
+        });
+      },
+      onStartError: (error) => {
+        logTypingFailure({
+          log: (message) => ctx.log?.debug?.(message),
+          channel: VK_CHANNEL,
+          target: originatingTarget,
+          error,
+        });
+      },
     },
     onRecordError: (error) => {
       ctx.runtime.error?.(`vk: failed updating session meta: ${formatVkRoutingError(error)}`);

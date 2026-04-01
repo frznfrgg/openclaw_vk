@@ -4,6 +4,7 @@ import { setVkRuntime } from "./runtime.js";
 const mocks = vi.hoisted(() => ({
   dispatchInboundReplyWithBase: vi.fn(),
   sendVkText: vi.fn(),
+  sendVkTyping: vi.fn(),
   upsertChannelPairingRequest: vi.fn(),
 }));
 
@@ -13,6 +14,7 @@ vi.mock("../../../src/plugin-sdk/inbound-reply-dispatch.js", () => ({
 
 vi.mock("./send.js", () => ({
   sendVkText: mocks.sendVkText,
+  sendVkTyping: mocks.sendVkTyping,
 }));
 
 vi.mock("../../../src/pairing/pairing-store.js", () => ({
@@ -74,6 +76,7 @@ describe("routeVkInboundEvent group routing", () => {
       messageId: "778",
       conversationId: "vk:chat:2000000001",
     });
+    mocks.sendVkTyping.mockResolvedValue(undefined);
     mocks.upsertChannelPairingRequest.mockResolvedValue({
       code: "PAIR-1",
       created: true,
@@ -157,6 +160,12 @@ describe("routeVkInboundEvent group routing", () => {
       accountId: "default",
       to: "vk:chat:2000000001",
       text: "group reply",
+    });
+    await mocks.dispatchInboundReplyWithBase.mock.calls[0][0].typing.start();
+    expect(mocks.sendVkTyping).toHaveBeenCalledWith({
+      cfg: {},
+      accountId: "default",
+      to: "vk:chat:2000000001",
     });
   });
 

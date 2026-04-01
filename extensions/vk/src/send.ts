@@ -19,6 +19,14 @@ type VkSendResponseBody = {
   };
 };
 
+type VkSetActivityResponseBody = {
+  response?: number;
+  error?: {
+    error_code?: number;
+    error_msg?: string;
+  };
+};
+
 const MAX_VK_RANDOM_ID = 2_147_483_647;
 let nextVkRandomId = randomInt(1, MAX_VK_RANDOM_ID + 1);
 
@@ -138,6 +146,54 @@ async function sendVkMessage(params: {
     conversationId: target.canonicalTarget,
     timestamp,
   };
+}
+
+export async function sendVkTyping(params: {
+  cfg: OpenClawConfig;
+  to: string;
+  accountId?: string | null;
+  fetcher?: typeof fetch;
+}): Promise<void> {
+  const { account } = resolveVkSendAccount({
+    cfg: params.cfg,
+    accountId: params.accountId,
+  });
+  const target = resolveVkPeerTarget(params.to);
+  const body = new URLSearchParams();
+  body.set("peer_id", target.peerId);
+  body.set("type", "typing");
+  body.set("access_token", account.token);
+  body.set("v", VK_API_VERSION);
+
+  const response = await (params.fetcher ?? fetch)(`${VK_API_BASE}/messages.setActivity`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+    },
+    body,
+  });
+
+  let payload: VkSetActivityResponseBody | undefined;
+  try {
+    payload = (await response.json()) as VkSetActivityResponseBody;
+  } catch {
+    payload = undefined;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.error?.error_msg ?? `VK messages.setActivity failed with HTTP ${response.status}.`,
+    );
+  }
+  if (payload?.error) {
+    throw new Error(
+      payload.error.error_msg ??
+        `VK messages.setActivity failed (${payload.error.error_code ?? "unknown"}).`,
+    );
+  }
+  if (payload?.response !== 1) {
+    throw new Error("VK messages.setActivity returned an invalid response payload.");
+  }
 }
 
 export async function sendVkText(

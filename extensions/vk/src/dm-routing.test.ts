@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   dispatchInboundReplyWithBase: vi.fn(),
   materializeVkInboundMedia: vi.fn(),
   sendVkText: vi.fn(),
+  sendVkTyping: vi.fn(),
   upsertChannelPairingRequest: vi.fn(),
 }));
 
@@ -18,6 +19,7 @@ vi.mock("./inbound-media.js", () => ({
 
 vi.mock("./send.js", () => ({
   sendVkText: mocks.sendVkText,
+  sendVkTyping: mocks.sendVkTyping,
 }));
 
 vi.mock("../../../src/pairing/pairing-store.js", () => ({
@@ -80,6 +82,7 @@ describe("routeVkInboundEvent", () => {
       messageId: "777",
       conversationId: "vk:user:42",
     });
+    mocks.sendVkTyping.mockResolvedValue(undefined);
     mocks.upsertChannelPairingRequest.mockResolvedValue({
       code: "PAIR-1",
       created: true,
@@ -140,6 +143,12 @@ describe("routeVkInboundEvent", () => {
       accountId: "default",
       to: "vk:user:42",
       text: "reply text",
+    });
+    await dispatched.typing.start();
+    expect(mocks.sendVkTyping).toHaveBeenCalledWith({
+      cfg: {},
+      accountId: "default",
+      to: "vk:user:42",
     });
     expect(statusSink).toHaveBeenCalledWith({
       lastInboundAt: 1_700_000_000_000,
