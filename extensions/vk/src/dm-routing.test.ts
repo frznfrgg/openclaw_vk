@@ -3,12 +3,17 @@ import { setVkRuntime } from "./runtime.js";
 
 const mocks = vi.hoisted(() => ({
   dispatchInboundReplyWithBase: vi.fn(),
+  materializeVkInboundMedia: vi.fn(),
   sendVkText: vi.fn(),
   upsertChannelPairingRequest: vi.fn(),
 }));
 
 vi.mock("../../../src/plugin-sdk/inbound-reply-dispatch.js", () => ({
   dispatchInboundReplyWithBase: mocks.dispatchInboundReplyWithBase,
+}));
+
+vi.mock("./inbound-media.js", () => ({
+  materializeVkInboundMedia: mocks.materializeVkInboundMedia,
 }));
 
 vi.mock("./send.js", () => ({
@@ -69,6 +74,7 @@ describe("routeVkInboundEvent", () => {
     vi.clearAllMocks();
     installRuntime();
     mocks.dispatchInboundReplyWithBase.mockResolvedValue(undefined);
+    mocks.materializeVkInboundMedia.mockResolvedValue({});
     mocks.sendVkText.mockResolvedValue({
       channel: "vk",
       messageId: "777",
@@ -143,6 +149,85 @@ describe("routeVkInboundEvent", () => {
         ([patch]) => patch && typeof patch === "object" && typeof patch.lastOutboundAt === "number",
       ),
     ).toBe(true);
+  });
+
+  it("passes downloaded attachment paths into the inbound agent context", async () => {
+    mocks.materializeVkInboundMedia.mockResolvedValue({
+      MediaPath: "/tmp/openclaw/media/inbound/report---uuid.pdf",
+      MediaType: "application/pdf",
+      MediaUrl: "/tmp/openclaw/media/inbound/report---uuid.pdf",
+      MediaPaths: [
+        "/tmp/openclaw/media/inbound/report---uuid.pdf",
+        "/tmp/openclaw/media/inbound/photo---uuid.png",
+      ],
+      MediaUrls: [
+        "/tmp/openclaw/media/inbound/report---uuid.pdf",
+        "/tmp/openclaw/media/inbound/photo---uuid.png",
+      ],
+      MediaTypes: ["application/pdf", "image/png"],
+    });
+
+    const event = {
+      eventId: "evt-media-1",
+      peerId: "42",
+      senderId: "42",
+      messageId: "10",
+      text: "read this",
+      attachments: [
+        {
+          kind: "document" as const,
+          url: "https://cdn.example.com/report.pdf",
+          mimeType: "application/pdf",
+          fileName: "report.pdf",
+        },
+        {
+          kind: "image" as const,
+          url: "https://cdn.example.com/photo.png",
+          mimeType: "image/png",
+          fileName: "photo.png",
+        },
+      ],
+      timestamp: 1_700_000_000_000,
+      chatType: "direct" as const,
+    };
+
+    await routeVkInboundEvent({
+      ctx: {
+        cfg: {},
+        accountId: "default",
+        runtime: { error: vi.fn() } as never,
+        log: { debug: vi.fn(), error: vi.fn() } as never,
+      },
+      account: {
+        ...baseAccount,
+        config: {
+          ...baseAccount.config,
+          dmPolicy: "allowlist",
+          allowFrom: ["42"],
+        },
+      },
+      event,
+      statusSink: vi.fn(),
+    });
+
+    expect(mocks.materializeVkInboundMedia).toHaveBeenCalledWith({
+      attachments: event.attachments,
+      log: expect.any(Object),
+    });
+    expect(mocks.dispatchInboundReplyWithBase.mock.calls[0][0].ctxPayload).toMatchObject({
+      MediaPath: "/tmp/openclaw/media/inbound/report---uuid.pdf",
+      MediaType: "application/pdf",
+      MediaUrl: "/tmp/openclaw/media/inbound/report---uuid.pdf",
+      MediaPaths: [
+        "/tmp/openclaw/media/inbound/report---uuid.pdf",
+        "/tmp/openclaw/media/inbound/photo---uuid.png",
+      ],
+      MediaUrls: [
+        "/tmp/openclaw/media/inbound/report---uuid.pdf",
+        "/tmp/openclaw/media/inbound/photo---uuid.png",
+      ],
+      MediaTypes: ["application/pdf", "image/png"],
+    });
   });
 
   it("issues a standard pairing challenge for an unknown DM sender", async () => {

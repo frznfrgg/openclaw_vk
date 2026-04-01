@@ -12,6 +12,7 @@ import {
   resolveDmGroupAccessWithLists,
 } from "../../../src/security/dm-policy-shared.js";
 import type { VkInboundEvent } from "./inbound-normalize.js";
+import { materializeVkInboundMedia } from "./inbound-media.js";
 import { getVkRuntime } from "./runtime.js";
 import { sendVkText } from "./send.js";
 import type { InspectedVkAccount, ResolvedVkAccount } from "./shared.js";
@@ -116,6 +117,10 @@ async function dispatchVkInboundConversation(params: {
     storePath,
     sessionKey: route.sessionKey,
   });
+  const mediaPayload = await materializeVkInboundMedia({
+    attachments: event.attachments,
+    log: ctx.log,
+  });
   const rawBody = event.text.trim();
   const body = core.channel.reply.formatAgentEnvelope({
     channel: "VK",
@@ -141,6 +146,7 @@ async function dispatchVkInboundConversation(params: {
     GroupSubject: event.chatType === "group" ? event.peerId : undefined,
     MessageSid: event.messageId,
     Timestamp: event.timestamp,
+    ...mediaPayload,
     Provider: VK_CHANNEL,
     Surface: VK_CHANNEL,
     WasMentioned: event.chatType === "group" ? true : undefined,
