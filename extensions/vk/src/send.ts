@@ -1,8 +1,8 @@
 import { randomInt } from "node:crypto";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
+import { stripMarkdown } from "openclaw/plugin-sdk/text-runtime";
 import type { OutboundDeliveryResult } from "../../../src/infra/outbound/deliver.js";
 import { sanitizeForPlainText } from "../../../src/infra/outbound/sanitize-text.js";
-import { stripMarkdown } from "../../../src/line/markdown-to-line.js";
 import { inspectVkAccount } from "./account-inspect.js";
 import { writeVkRuntimeState } from "./runtime.js";
 import { VK_API_BASE, VK_API_VERSION, VK_DEFAULT_ACCOUNT_ID } from "./shared.js";
