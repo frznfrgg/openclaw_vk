@@ -11,6 +11,7 @@ import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
 import { buildChannelOutboundSessionRoute } from "openclaw/plugin-sdk/core";
 import { chunkByParagraph } from "../../../src/auto-reply/chunk.js";
 import { PAIRING_APPROVED_MESSAGE } from "../../../src/channels/plugins/pairing-message.js";
+import type { ChannelMessagingAdapter } from "../../../src/channels/plugins/types.core.js";
 import {
   resolveAllowlistProviderRuntimeGroupPolicy,
   resolveDefaultGroupPolicy,
@@ -124,7 +125,7 @@ const vkMessageActions: ChannelMessageActionAdapter = {
   }),
 };
 
-const vkTargetResolver = {
+const vkTargetResolver: NonNullable<ChannelMessagingAdapter["targetResolver"]> = {
   looksLikeId: (raw: string, normalized?: string) =>
     Boolean(parseVkExplicitTarget(raw) ?? (normalized ? parseVkExplicitTarget(normalized) : null)),
   resolveTarget: async ({ input, normalized }) => {
