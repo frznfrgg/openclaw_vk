@@ -146,6 +146,33 @@ describe("resolveMessagingTarget (directory fallback)", () => {
     expect(mocks.listGroupsLive).not.toHaveBeenCalled();
   });
 
+  it("accepts plugin-parsed explicit targets before directory lookup", async () => {
+    mocks.getChannelPlugin.mockReturnValue({
+      meta: { label: "VK" },
+      messaging: {
+        parseExplicitTarget: ({ raw }: { raw: string }) =>
+          raw.toLowerCase() === "vk:user:597545525"
+            ? { to: "vk:user:597545525", chatType: "direct" }
+            : null,
+      },
+    });
+
+    const result = await expectOkResolution({
+      cfg,
+      channel: "vk",
+      input: "vk:user:597545525",
+    });
+    expect(result.target).toEqual({
+      to: "vk:user:597545525",
+      kind: "user",
+      source: "normalized",
+      display: undefined,
+    });
+    expect(mocks.listPeers).not.toHaveBeenCalled();
+    expect(mocks.listGroups).not.toHaveBeenCalled();
+    expect(mocks.resolveTarget).not.toHaveBeenCalled();
+  });
+
   it("uses plugin chat-type inference for directory lookups and plugin fallback on miss", async () => {
     mocks.getChannelPlugin.mockReturnValue({
       directory: {

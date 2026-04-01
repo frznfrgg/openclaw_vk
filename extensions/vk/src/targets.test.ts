@@ -88,6 +88,7 @@ describe("VK messaging hooks", () => {
       chatType: "group",
     });
     expect(vkPlugin.messaging?.inferTargetChatType?.({ to: "vk:user:42" })).toBe("direct");
+    expect(vkPlugin.messaging?.targetResolver?.looksLikeId?.("vk:user:42")).toBe(true);
   });
 
   it("routes outbound user and group targets into the same session families as inbound VK conversations", () => {

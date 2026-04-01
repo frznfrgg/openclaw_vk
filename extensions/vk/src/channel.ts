@@ -37,6 +37,7 @@ import {
   normalizeVkTarget,
   normalizeVkUserId,
   parseVkExplicitTarget,
+  parseVkTarget,
 } from "./targets.js";
 import { resolveVkRuntimeAccount } from "./token.js";
 import { runVkLongPoll } from "./transport/long-poll.js";
@@ -121,6 +122,22 @@ const vkMessageActions: ChannelMessageActionAdapter = {
   describeMessageTool: () => ({
     actions: ["send"],
   }),
+};
+
+const vkTargetResolver = {
+  looksLikeId: (raw: string, normalized?: string) =>
+    Boolean(parseVkExplicitTarget(raw) ?? (normalized ? parseVkExplicitTarget(normalized) : null)),
+  resolveTarget: async ({ input, normalized }) => {
+    const parsed = parseVkTarget(input) ?? parseVkTarget(normalized);
+    if (!parsed) {
+      return null;
+    }
+    return {
+      to: parsed.canonicalTarget,
+      kind: parsed.kind === "user" ? "user" : "group",
+      source: "normalized" as const,
+    };
+  },
 };
 
 export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
@@ -341,6 +358,7 @@ export const vkPlugin: ChannelPlugin<InspectedVkAccount, VkProbe> = {
         target,
       }),
     targetResolver: {
+      ...vkTargetResolver,
       hint: "<vk:user:{user_id}|vk:chat:{peer_id}>",
     },
   },

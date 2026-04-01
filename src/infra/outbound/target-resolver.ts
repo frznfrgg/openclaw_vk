@@ -395,6 +395,32 @@ export async function resolveMessagingTarget(params: {
   const hint = plugin?.messaging?.targetResolver?.hint;
   const kind = detectTargetKind(params.channel, raw, params.preferredKind);
   const normalized = normalizeTargetForProvider(params.channel, raw) ?? raw;
+  const parsedExplicitTarget =
+    plugin?.messaging?.parseExplicitTarget?.({ raw }) ??
+    (normalized !== raw ? plugin?.messaging?.parseExplicitTarget?.({ raw: normalized }) : null);
+  if (parsedExplicitTarget?.to) {
+    const explicitKind = (() => {
+      if (parsedExplicitTarget.chatType === "direct") {
+        return "user" as const;
+      }
+      if (parsedExplicitTarget.chatType === "group") {
+        return "group" as const;
+      }
+      if (parsedExplicitTarget.chatType === "channel") {
+        return "channel" as const;
+      }
+      return kind;
+    })();
+    return {
+      ok: true,
+      target: {
+        to: parsedExplicitTarget.to,
+        kind: explicitKind,
+        display: undefined,
+        source: "normalized",
+      },
+    };
+  }
   const looksLikeTargetId = (): boolean => {
     const trimmed = raw.trim();
     if (!trimmed) {
