@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import pluginEntry from "../index.js";
 import setupEntry from "../setup-entry.js";
+import { vkApprovalAuth } from "./approval-auth.js";
 import { vkPlugin, vkSetupPlugin } from "./channel.js";
 
 const DEFAULT_ACCOUNT_ID = "default";
@@ -15,6 +16,10 @@ describe("VK plugin entrypoints", () => {
   it("publishes the VK setup entry", () => {
     expect(setupEntry.plugin).toBe(vkSetupPlugin);
     expect(vkSetupPlugin.id).toBe("vk");
+  });
+
+  it("wires same-chat approval auth through the live VK plugin", () => {
+    expect(vkPlugin.auth).toBe(vkApprovalAuth);
   });
 });
 
