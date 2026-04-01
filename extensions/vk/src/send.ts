@@ -230,8 +230,10 @@ export async function sendVkMedia(
     cfg: params.cfg,
     accountId: params.accountId,
   });
+  const target = resolveVkPeerTarget(params.to);
   const attachment = await resolveVkAttachmentToken({
     account,
+    peerId: target.peerId,
     mediaUrl: params.mediaUrl,
     cfg: params.cfg,
     mediaLocalRoots: params.mediaLocalRoots,

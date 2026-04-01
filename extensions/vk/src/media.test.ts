@@ -58,6 +58,7 @@ describe("VK media helpers", () => {
       .mockImplementationOnce(async (_input: RequestInfo | URL, init?: RequestInit) => {
         const body = new URLSearchParams(String(init?.body));
         expect(body.get("group_id")).toBe("123");
+        expect(body.get("peer_id")).toBe("597545525");
         return new Response(
           JSON.stringify({ response: { upload_url: "https://upload.vk.test/photo" } }),
           { status: 200 },
@@ -84,6 +85,7 @@ describe("VK media helpers", () => {
     await expect(
       uploadVkImage({
         account: baseAccount,
+        peerId: "597545525",
         mediaUrl: "file:///tmp/photo.png",
         cfg: baseCfg,
         mediaLocalRoots: ["/tmp"],
@@ -112,6 +114,7 @@ describe("VK media helpers", () => {
       .mockImplementationOnce(async (_input: RequestInfo | URL, init?: RequestInit) => {
         const body = new URLSearchParams(String(init?.body));
         expect(body.get("type")).toBe("doc");
+        expect(body.get("peer_id")).toBe("597545525");
         return new Response(
           JSON.stringify({ response: { upload_url: "https://upload.vk.test/doc" } }),
           { status: 200 },
@@ -135,6 +138,7 @@ describe("VK media helpers", () => {
     await expect(
       uploadVkDocument({
         account: baseAccount,
+        peerId: "597545525",
         mediaUrl: "https://example.com/report.pdf",
         cfg: baseCfg,
         fetcher: fetcher as typeof fetch,
@@ -188,6 +192,7 @@ describe("VK media helpers", () => {
     await expect(
       resolveVkAttachmentToken({
         account: baseAccount,
+        peerId: "597545525",
         mediaUrl: "https://example.com/photo.jpg",
         cfg: baseCfg,
         fetcher: fetcher as typeof fetch,
@@ -197,11 +202,21 @@ describe("VK media helpers", () => {
     await expect(
       resolveVkAttachmentToken({
         account: baseAccount,
+        peerId: "597545525",
         mediaUrl: "https://example.com/report.pdf",
         cfg: baseCfg,
         fetcher: fetcher as typeof fetch,
       }),
     ).resolves.toBe("doc-123_55");
+
+    const photoUploadBody = new URLSearchParams(
+      String((fetcher.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined])[1]?.body),
+    );
+    const docUploadBody = new URLSearchParams(
+      String((fetcher.mock.calls[3] as [RequestInfo | URL, RequestInit | undefined])[1]?.body),
+    );
+    expect(photoUploadBody.get("peer_id")).toBe("597545525");
+    expect(docUploadBody.get("peer_id")).toBe("597545525");
   });
 
   it("drops unsupported-only outbound payloads and preserves text when supported media remain", () => {

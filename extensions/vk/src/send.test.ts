@@ -222,6 +222,7 @@ describe("sendVkText", () => {
         accountId: "default",
         communityId: "123",
       }),
+      peerId: "42",
       mediaUrl: "file:///tmp/photo.png",
       cfg: baseCfg,
       mediaLocalRoots: ["/tmp"],
@@ -250,6 +251,18 @@ describe("sendVkText", () => {
       text: "   ",
       mediaUrl: "https://example.com/report.pdf",
       randomId: 12349,
+      fetcher: fetcher as typeof fetch,
+    });
+
+    expect(mediaMocks.resolveVkAttachmentToken).toHaveBeenCalledWith({
+      account: expect.objectContaining({
+        accountId: "default",
+        communityId: "123",
+      }),
+      peerId: "2000000001",
+      mediaUrl: "https://example.com/report.pdf",
+      cfg: baseCfg,
+      mediaLocalRoots: undefined,
       fetcher: fetcher as typeof fetch,
     });
   });

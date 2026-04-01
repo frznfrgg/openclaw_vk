@@ -231,6 +231,7 @@ async function loadVkOutboundMedia(params: {
 
 async function uploadVkImageInternal(params: {
   account: ResolvedVkAccount;
+  peerId: string;
   mediaUrl: string;
   cfg: OpenClawConfig;
   mediaLocalRoots?: readonly string[];
@@ -262,7 +263,10 @@ async function uploadVkImageInternal(params: {
   const uploadServer = await callVkMethod<{ upload_url?: string }>({
     account: params.account,
     method: "photos.getMessagesUploadServer",
-    fields: { group_id: params.account.communityId },
+    fields: {
+      group_id: params.account.communityId,
+      peer_id: params.peerId,
+    },
     fetcher: params.fetcher,
   });
   const uploadUrl = uploadServer.upload_url?.trim();
@@ -306,6 +310,7 @@ async function uploadVkImageInternal(params: {
 
 async function uploadVkDocumentInternal(params: {
   account: ResolvedVkAccount;
+  peerId: string;
   mediaUrl: string;
   cfg: OpenClawConfig;
   mediaLocalRoots?: readonly string[];
@@ -337,6 +342,7 @@ async function uploadVkDocumentInternal(params: {
     method: "docs.getMessagesUploadServer",
     fields: {
       type: "doc",
+      peer_id: params.peerId,
     },
     fetcher: params.fetcher,
   });
@@ -425,6 +431,7 @@ export function normalizeVkOutboundPayload(payload: ReplyPayload): ReplyPayload 
 
 export async function uploadVkImage(params: {
   account: ResolvedVkAccount;
+  peerId: string;
   mediaUrl: string;
   cfg: OpenClawConfig;
   mediaLocalRoots?: readonly string[];
@@ -435,6 +442,7 @@ export async function uploadVkImage(params: {
 
 export async function uploadVkDocument(params: {
   account: ResolvedVkAccount;
+  peerId: string;
   mediaUrl: string;
   cfg: OpenClawConfig;
   mediaLocalRoots?: readonly string[];
@@ -445,6 +453,7 @@ export async function uploadVkDocument(params: {
 
 export async function resolveVkAttachmentToken(params: {
   account: ResolvedVkAccount;
+  peerId: string;
   mediaUrl: string;
   cfg: OpenClawConfig;
   mediaLocalRoots?: readonly string[];
