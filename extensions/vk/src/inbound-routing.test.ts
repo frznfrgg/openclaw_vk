@@ -100,7 +100,7 @@ describe("routeVkInboundEvent group routing", () => {
       peerId: "2000000001",
       senderId: "77",
       messageId: "15",
-      text: "hello group",
+      text: "[club123|tst-openclaw] hello group",
       attachments: [],
       timestamp: 1_700_000_000_000,
       chatType: "group" as const,
@@ -154,6 +154,7 @@ describe("routeVkInboundEvent group routing", () => {
       "vk:group:2000000001",
     );
     expect(mocks.dispatchInboundReplyWithBase.mock.calls[0][0].ctxPayload).toMatchObject({
+      RawBody: "hello group",
       ChatType: "group",
       To: "vk:chat:2000000001",
       OriginatingTo: "vk:chat:2000000001",
@@ -201,7 +202,7 @@ describe("routeVkInboundEvent group routing", () => {
         peerId: "2000000002",
         senderId: "77",
         messageId: "17",
-        text: "hello group",
+        text: "[club123|tst-openclaw] hello group",
         attachments: [],
         timestamp: 1_700_000_000_000,
         chatType: "group",
@@ -234,7 +235,7 @@ describe("routeVkInboundEvent group routing", () => {
         peerId: "2000000001",
         senderId: "88",
         messageId: "18",
-        text: "hello group",
+        text: "[club123|tst-openclaw] hello group",
         attachments: [],
         timestamp: 1_700_000_000_000,
         chatType: "group",
@@ -267,7 +268,7 @@ describe("routeVkInboundEvent group routing", () => {
         peerId: "2000000001",
         senderId: "77",
         messageId: "19",
-        text: "/help",
+        text: "@club123 /help",
         attachments: [],
         timestamp: 1_700_000_000_000,
         chatType: "group",
@@ -303,7 +304,7 @@ describe("routeVkInboundEvent group routing", () => {
         peerId: "2000000001",
         senderId: "77",
         messageId: "20",
-        text: "/new",
+        text: "@club123 /new",
         attachments: [],
         timestamp: 1_700_000_000_000,
         chatType: "group",
@@ -312,5 +313,37 @@ describe("routeVkInboundEvent group routing", () => {
     });
 
     expect(mocks.dispatchInboundReplyWithBase).not.toHaveBeenCalled();
+  });
+
+  it("ignores group messages that do not mention the community", async () => {
+    await routeVkInboundEvent({
+      ctx: {
+        cfg: {},
+        accountId: "default",
+        runtime: { error: vi.fn() } as never,
+        log: { debug: vi.fn(), error: vi.fn() } as never,
+      },
+      account: {
+        ...baseAccount,
+        config: {
+          ...baseAccount.config,
+          groupPolicy: "open",
+        },
+      },
+      event: {
+        eventId: "evt-group-nomention-1",
+        peerId: "2000000001",
+        senderId: "77",
+        messageId: "21",
+        text: "hello group",
+        attachments: [],
+        timestamp: 1_700_000_000_000,
+        chatType: "group",
+      },
+      statusSink: vi.fn(),
+    });
+
+    expect(mocks.dispatchInboundReplyWithBase).not.toHaveBeenCalled();
+    expect(mocks.sendVkText).not.toHaveBeenCalled();
   });
 });

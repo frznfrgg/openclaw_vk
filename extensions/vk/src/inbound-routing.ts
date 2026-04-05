@@ -52,6 +52,29 @@ function resolveVkOriginatingTarget(event: VkInboundEvent): string {
   return event.chatType === "group" ? `vk:chat:${event.peerId}` : `vk:user:${event.peerId}`;
 }
 
+function buildVkSelfMentionRegexes(communityId: string): RegExp[] {
+  const id = communityId.trim();
+  if (!id) {
+    return [];
+  }
+  return [
+    new RegExp(String.raw`\[(?:club|public|event)${id}\|[^\]]+\]`, "giu"),
+    new RegExp(String.raw`@(?:club|public|event)${id}\b`, "giu"),
+  ];
+}
+
+function hasVkSelfMention(text: string, communityId: string): boolean {
+  return buildVkSelfMentionRegexes(communityId).some((pattern) => pattern.test(text));
+}
+
+function stripVkSelfMentions(text: string, communityId: string): string {
+  let next = text;
+  for (const pattern of buildVkSelfMentionRegexes(communityId)) {
+    next = next.replace(pattern, " ");
+  }
+  return next.replace(/\s+/g, " ").trim();
+}
+
 function resolveVkCommandBody(rawBody: string): string {
   return rawBody.trim() === "/help" ? "/commands" : rawBody;
 }
@@ -158,7 +181,12 @@ async function dispatchVkInboundConversation(params: {
     attachments: event.attachments,
     log: ctx.log,
   });
-  const rawBody = event.text.trim();
+  const wasMentioned =
+    event.chatType === "group" ? hasVkSelfMention(event.text, account.communityId) : undefined;
+  const rawBody =
+    event.chatType === "group" && wasMentioned
+      ? stripVkSelfMentions(event.text, account.communityId)
+      : event.text.trim();
   const commandBody = resolveVkCommandBody(rawBody);
   const body = core.channel.reply.formatAgentEnvelope({
     channel: "VK",
@@ -187,7 +215,7 @@ async function dispatchVkInboundConversation(params: {
     ...mediaPayload,
     Provider: VK_CHANNEL,
     Surface: VK_CHANNEL,
-    WasMentioned: event.chatType === "group" ? true : undefined,
+    WasMentioned: wasMentioned,
     OriginatingChannel: VK_CHANNEL,
     OriginatingTo: originatingTarget,
     CommandAuthorized: params.commandAuthorized === true,
@@ -260,10 +288,18 @@ export async function routeVkInboundEvent(params: {
     channel: VK_CHANNEL,
     accountId: account.accountId,
   });
-  const rawBody = event.text.trim();
+  const rawBody =
+    event.chatType === "group" ? stripVkSelfMentions(event.text, account.communityId) : event.text.trim();
   const hasControl = hasControlCommand(rawBody, ctx.cfg);
 
   if (event.chatType === "group") {
+    if (!hasVkSelfMention(event.text, account.communityId)) {
+      ctx.log?.debug?.(
+        `[${account.accountId}] VK group ${event.peerId} ignored (community not mentioned)`,
+      );
+      return;
+    }
+
     const groupAdmission = resolveVkGroupAdmission({
       peerId: event.peerId,
       groups: account.config.groups,
