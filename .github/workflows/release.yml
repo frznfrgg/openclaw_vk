@@ -29,11 +29,11 @@ jobs:
       - name: Build the project
         run: pnpm build
 
-      - name: Delete ALL node_modules to prevent infinite symlink loops
-        run: find . -name "node_modules" -type d -prune -exec rm -rf '{}' +
+      - name: Delete root node_modules
+        run: rm -rf node_modules
 
-      - name: Zip the built code safely
-        run: zip -ry custom-openclaw-build.zip . -x "*.git*"
+      - name: Zip the built code
+        run: zip -ry custom-openclaw-build.zip . -x "*.git*" -x "*node_modules*" -x "*/node_modules/*"
 
       - name: Attach Zip to the Release
         uses: softprops/action-gh-release@v2
