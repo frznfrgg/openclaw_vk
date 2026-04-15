@@ -36,6 +36,6 @@ jobs:
         run: zip -ry custom-openclaw-build.zip . -x "*.git*" -x "*node_modules*" -x "*/node_modules/*"
 
       - name: Attach Zip to the Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: custom-openclaw-build.zip
